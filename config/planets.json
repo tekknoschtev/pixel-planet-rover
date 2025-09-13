@@ -1,0 +1,156 @@
+{
+  "planetTypes": {
+    "mars": {
+      "name": "Mars",
+      "description": "Red planet with rocky terrain and dust storms",
+      "material": {
+        "color": "0x8B4513",
+        "flatShading": true
+      },
+      "lighting": {
+        "ambientColor": "0x404040",
+        "ambientIntensity": 0.3,
+        "sunColor": "0xffffff",
+        "sunIntensity": 0.8,
+        "sunPosition": [100, 50, 50]
+      },
+      "atmosphere": {
+        "fogColor": "0x8B4513",
+        "fogNear": 100,
+        "fogFar": 500,
+        "fogDensity": 0.01,
+        "particles": {
+          "type": "dust",
+          "density": 0.5,
+          "color": "0xCC9966"
+        }
+      },
+      "terrain": {
+        "noiseScale": 0.1,
+        "heightVariation": 3,
+        "roughness": 0.7
+      }
+    },
+    "moon": {
+      "name": "Moon",
+      "description": "Barren, cratered surface with stark lighting",
+      "material": {
+        "color": "0x999999",
+        "flatShading": true
+      },
+      "lighting": {
+        "ambientColor": "0x202020",
+        "ambientIntensity": 0.1,
+        "sunColor": "0xffffff",
+        "sunIntensity": 1.2,
+        "sunPosition": [100, 100, 0]
+      },
+      "atmosphere": {
+        "fogColor": null,
+        "fogNear": null,
+        "fogFar": null,
+        "fogDensity": 0,
+        "particles": null
+      },
+      "terrain": {
+        "noiseScale": 0.05,
+        "heightVariation": 8,
+        "roughness": 0.9
+      }
+    },
+    "ice": {
+      "name": "Ice World",
+      "description": "Frozen planet with crystalline formations",
+      "material": {
+        "color": "0xAADDFF",
+        "flatShading": true
+      },
+      "lighting": {
+        "ambientColor": "0x4466AA",
+        "ambientIntensity": 0.4,
+        "sunColor": "0xCCEEFF",
+        "sunIntensity": 0.6,
+        "sunPosition": [80, 60, 100]
+      },
+      "atmosphere": {
+        "fogColor": "0xCCEEFF",
+        "fogNear": 50,
+        "fogFar": 300,
+        "fogDensity": 0.02,
+        "particles": {
+          "type": "snow",
+          "density": 0.3,
+          "color": "0xFFFFFF"
+        }
+      },
+      "terrain": {
+        "noiseScale": 0.08,
+        "heightVariation": 5,
+        "roughness": 0.5
+      }
+    },
+    "volcanic": {
+      "name": "Volcanic",
+      "description": "Molten landscape with lava flows and ash",
+      "material": {
+        "color": "0x331100",
+        "flatShading": true
+      },
+      "lighting": {
+        "ambientColor": "0x660000",
+        "ambientIntensity": 0.5,
+        "sunColor": "0xFF6600",
+        "sunIntensity": 0.7,
+        "sunPosition": [120, 40, 80]
+      },
+      "atmosphere": {
+        "fogColor": "0x664400",
+        "fogNear": 80,
+        "fogFar": 400,
+        "fogDensity": 0.015,
+        "particles": {
+          "type": "ash",
+          "density": 0.7,
+          "color": "0x442200"
+        }
+      },
+      "terrain": {
+        "noiseScale": 0.12,
+        "heightVariation": 6,
+        "roughness": 0.8
+      }
+    },
+    "desert": {
+      "name": "Desert",
+      "description": "Sandy dunes with shifting terrain",
+      "material": {
+        "color": "0xDDCC99",
+        "flatShading": true
+      },
+      "lighting": {
+        "ambientColor": "0x665544",
+        "ambientIntensity": 0.4,
+        "sunColor": "0xFFDD88",
+        "sunIntensity": 0.9,
+        "sunPosition": [100, 80, 20]
+      },
+      "atmosphere": {
+        "fogColor": "0xDDCC99",
+        "fogNear": 120,
+        "fogFar": 600,
+        "fogDensity": 0.005,
+        "particles": {
+          "type": "sand",
+          "density": 0.4,
+          "color": "0xEEDD99"
+        }
+      },
+      "terrain": {
+        "noiseScale": 0.06,
+        "heightVariation": 4,
+        "roughness": 0.3
+      }
+    }
+  },
+  "defaultPlanet": "mars"
+}

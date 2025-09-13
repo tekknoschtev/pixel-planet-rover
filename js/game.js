@@ -7,7 +7,10 @@ let planetQuaternion = new THREE.Quaternion(); // Use quaternion instead of Eule
 let keys = {};
 
 // Initialize the game
-function init() {
+async function init() {
+    // Load planet configurations first
+    await planetTypeManager.loadPlanetConfigs();
+    
     // Create scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0a);
@@ -24,7 +27,7 @@ function init() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.getElementById('container').appendChild(renderer.domElement);
     
-    // Create planet
+    // Create planet using current planet type
     createPlanet();
     
     // Create rover
@@ -40,7 +43,17 @@ function init() {
     animate();
 }
 
-function createPlanet() {
+function createPlanet(planetType = null) {
+    // Get planet configuration
+    const materialProps = planetTypeManager.getMaterialProperties(planetType);
+    const terrainProps = planetTypeManager.getTerrainProperties(planetType);
+    
+    // Use fallback values if configuration isn't loaded
+    const planetColor = materialProps ? materialProps.color : 0x8B4513;
+    const flatShading = materialProps ? materialProps.flatShading : true;
+    const noiseScale = terrainProps ? terrainProps.noiseScale : 0.1;
+    const heightVariation = terrainProps ? terrainProps.heightVariation : 3;
+    
     // Create higher quality planet sphere
     const geometry = new THREE.IcosahedronGeometry(planetRadius, 4);
     
@@ -59,8 +72,8 @@ function createPlanet() {
             const vertex = new THREE.Vector3(x, y, z);
             const distance = vertex.length();
             
-            // Use position-based noise for consistency
-            const noise = Math.sin(x * 0.1) * Math.cos(y * 0.1) * Math.sin(z * 0.1) * 3;
+            // Use position-based noise for consistency with configurable parameters
+            const noise = Math.sin(x * noiseScale) * Math.cos(y * noiseScale) * Math.sin(z * noiseScale) * heightVariation;
             const newDistance = distance + noise;
             
             vertex.normalize().multiplyScalar(newDistance);
@@ -77,10 +90,10 @@ function createPlanet() {
     geometry.attributes.position.needsUpdate = true;
     geometry.computeVertexNormals();
     
-    // Planet material - reddish like Mars
+    // Planet material using configuration
     const material = new THREE.MeshLambertMaterial({ 
-        color: 0x8B4513,
-        flatShading: true
+        color: planetColor,
+        flatShading: flatShading
     });
     
     planet = new THREE.Mesh(geometry, material);
@@ -93,7 +106,11 @@ function createRover() {
     
     // Main body - a box
     const bodyGeometry = new THREE.BoxGeometry(4, 2, 6);
-    const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
+    const bodyMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x666666,
+        emissive: 0x444444, // Strong emissive to resist ambient lighting
+        shininess: 30
+    });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     body.position.y = 1;
     body.castShadow = true;
@@ -101,7 +118,11 @@ function createRover() {
     
     // Wheels - 4 cylinders
     const wheelGeometry = new THREE.CylinderGeometry(1, 1, 0.5, 8);
-    const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+    const wheelMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x333333,
+        emissive: 0x222222, // Strong emissive to resist ambient lighting
+        shininess: 10
+    });
     
     const wheelPositions = [
         [-2.5, 0, 2], [2.5, 0, 2], [-2.5, 0, -2], [2.5, 0, -2]
@@ -117,7 +138,11 @@ function createRover() {
     
     // Solar panel - thin box on top
     const panelGeometry = new THREE.BoxGeometry(3, 0.1, 4);
-    const panelMaterial = new THREE.MeshLambertMaterial({ color: 0x000066 });
+    const panelMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x0000AA,
+        emissive: 0x000066, // Strong blue emissive to maintain blue color
+        shininess: 50
+    });
     const panel = new THREE.Mesh(panelGeometry, panelMaterial);
     panel.position.y = 2.5;
     panel.castShadow = true;
@@ -125,9 +150,9 @@ function createRover() {
     
     // Headlight to show front direction
     const headlightGeometry = new THREE.SphereGeometry(0.3, 8, 8);
-    const headlightMaterial = new THREE.MeshLambertMaterial({ 
+    const headlightMaterial = new THREE.MeshPhongMaterial({ 
         color: 0xffff00,
-        emissive: 0x444400
+        emissive: 0x666600 // Strong yellow emissive like before
     });
     const headlight = new THREE.Mesh(headlightGeometry, headlightMaterial);
     headlight.position.set(0, 1, 3.2); // Front of rover (positive Z)
@@ -136,7 +161,10 @@ function createRover() {
     
     // Front indicator bar for even clearer direction
     const frontBarGeometry = new THREE.BoxGeometry(2, 0.3, 0.3);
-    const frontBarMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+    const frontBarMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xff0000,
+        emissive: 0x660000 // Strong red emissive to maintain red color
+    });
     const frontBar = new THREE.Mesh(frontBarGeometry, frontBarMaterial);
     frontBar.position.set(0, 1.5, 3); // Front of rover
     frontBar.castShadow = true;
@@ -179,14 +207,30 @@ function getSurfaceHeightAtPosition(localX, localZ) {
     return planetRadius; // fallback
 }
 
-function addLighting() {
+function addLighting(planetType = null) {
+    // Get lighting configuration
+    const lightingProps = planetTypeManager.getLightingProperties(planetType);
+    
+    // Use fallback values if configuration isn't loaded
+    const ambientColor = lightingProps ? lightingProps.ambient.color : 0x404040;
+    const ambientIntensity = lightingProps ? lightingProps.ambient.intensity : 0.3;
+    const sunColor = lightingProps ? lightingProps.sun.color : 0xffffff;
+    const sunIntensity = lightingProps ? lightingProps.sun.intensity : 0.8;
+    const sunPosition = lightingProps ? lightingProps.sun.position : [100, 50, 50];
+    
+    // Remove existing lights
+    const existingLights = scene.children.filter(child => 
+        child instanceof THREE.AmbientLight || child instanceof THREE.DirectionalLight
+    );
+    existingLights.forEach(light => scene.remove(light));
+    
     // Ambient light
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+    const ambientLight = new THREE.AmbientLight(ambientColor, ambientIntensity);
     scene.add(ambientLight);
     
     // Directional light (sun)
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(100, 50, 50);
+    const directionalLight = new THREE.DirectionalLight(sunColor, sunIntensity);
+    directionalLight.position.set(sunPosition[0], sunPosition[1], sunPosition[2]);
     directionalLight.castShadow = true;
     directionalLight.shadow.mapSize.width = 2048;
     directionalLight.shadow.mapSize.height = 2048;
@@ -266,6 +310,8 @@ function handleRoverMovement() {
     const turnSpeed = 0.03;
     let moved = false;
     
+    // No hotkey handling needed
+    
     // Simple tank controls: A/D turn, W/S move forward/backward
     if (keys['KeyA']) {
         roverHeading -= turnSpeed; // Flip sign
@@ -313,5 +359,154 @@ function animate() {
     renderer.render(scene, camera);
 }
 
+// Planet switching function
+function switchPlanet(planetType) {
+    if (planetTypeManager.setPlanetType(planetType)) {
+        // Remove existing planet
+        if (planet) {
+            scene.remove(planet);
+        }
+        
+        // Remove existing rover and recreate it with updated materials
+        if (rover) {
+            scene.remove(rover);
+        }
+        
+        // Create new planet with the selected type
+        createPlanet();
+        
+        // Recreate rover with updated materials
+        createRover();
+        
+        // Update lighting for the new planet type
+        addLighting();
+        
+        // Reset rover position on new planet
+        positionRoverOnPlanet();
+        
+        console.log('Switched to planet:', planetType);
+        return true;
+    }
+    return false;
+}
+
+// Planet Selection Modal Functions
+let selectedPlanetType = null;
+
+function initializePlanetModal() {
+    const modal = document.getElementById('planetModal');
+    const closeBtn = document.querySelector('.close');
+    const planetGrid = document.getElementById('planetGrid');
+    
+    // Populate planet options
+    function populatePlanetOptions() {
+        planetGrid.innerHTML = '';
+        const planets = planetTypeManager.getAvailablePlanetTypes();
+        console.log('Available planets:', planets);
+        
+        if (planets.length === 0) {
+            planetGrid.innerHTML = '<p style="color: #ccc; text-align: center;">Loading planet configurations...</p>';
+            return;
+        }
+        
+        planets.forEach(planet => {
+            const planetOption = document.createElement('div');
+            planetOption.className = 'planet-option';
+            planetOption.dataset.planetId = planet.id;
+            
+            // Get planet config for preview color
+            const config = planetTypeManager.getPlanetConfig(planet.id);
+            const previewColor = config ? config.material.color.replace('0x', '#') : '#8B4513';
+            
+            planetOption.innerHTML = `
+                <div class="planet-preview" style="background-color: ${previewColor}"></div>
+                <div class="planet-name">${planet.name}</div>
+                <div class="planet-description">${planet.description}</div>
+            `;
+            
+            // Mark current planet as selected
+            if (planet.id === planetTypeManager.getCurrentPlanetType()) {
+                planetOption.classList.add('selected');
+                selectedPlanetType = planet.id;
+            }
+            
+            planetOption.addEventListener('click', () => {
+                // Remove previous selection
+                document.querySelectorAll('.planet-option').forEach(opt => 
+                    opt.classList.remove('selected')
+                );
+                // Add selection to clicked option
+                planetOption.classList.add('selected');
+                selectedPlanetType = planet.id;
+            });
+            
+            planetGrid.appendChild(planetOption);
+        });
+        
+        // Add action buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'planet-buttons';
+        buttonContainer.innerHTML = `
+            <button class="btn btn-secondary" onclick="closePlanetModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="applyPlanetSelection()">Switch Planet</button>
+        `;
+        planetGrid.parentElement.appendChild(buttonContainer);
+    }
+    
+    // Close modal event handlers
+    closeBtn.addEventListener('click', closePlanetModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closePlanetModal();
+    });
+    
+    // Store the populate function so we can call it later
+    window.repopulatePlanetOptions = populatePlanetOptions;
+    
+    // Don't populate immediately - wait for explicit call
+    // This will be called when the modal is first opened
+}
+
+function showPlanetModal() {
+    const modal = document.getElementById('planetModal');
+    
+    // Populate options each time modal is opened to ensure fresh data
+    if (window.repopulatePlanetOptions) {
+        window.repopulatePlanetOptions();
+    }
+    
+    modal.style.display = 'block';
+    selectedPlanetType = planetTypeManager.getCurrentPlanetType();
+}
+
+function closePlanetModal() {
+    const modal = document.getElementById('planetModal');
+    modal.style.display = 'none';
+}
+
+function applyPlanetSelection() {
+    if (selectedPlanetType && selectedPlanetType !== planetTypeManager.getCurrentPlanetType()) {
+        switchPlanet(selectedPlanetType);
+    }
+    closePlanetModal();
+}
+
+// Add keyboard shortcut for planet selection
+function handlePlanetSelectionKey() {
+    if (keys['KeyP']) {
+        showPlanetModal();
+        keys['KeyP'] = false; // Prevent repeat
+    }
+}
+
+// Make functions globally accessible
+window.showPlanetModal = showPlanetModal;
+window.closePlanetModal = closePlanetModal;
+window.applyPlanetSelection = applyPlanetSelection;
+
 // Start the game
-init();
+init().then(() => {
+    // Initialize modal after game loads
+    console.log('Game initialized, planet manager loaded:', planetTypeManager.loaded);
+    console.log('Available planet types:', planetTypeManager.getAvailablePlanetTypes());
+    initializePlanetModal();
+});

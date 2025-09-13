@@ -1,0 +1,13 @@
+{
+  "name": "moon-explorer",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "serve": "node -e \"const http=require('http'); const fs=require('fs'); const path=require('path'); const url=require('url'); const mime={'html':'text/html','js':'application/javascript','css':'text/css','png':'image/png','jpg':'image/jpeg','svg':'image/svg+xml','json':'application/json'}; const server=http.createServer((req,res)=>{const parsedUrl=url.parse(req.url); let filePath=parsedUrl.pathname; if(filePath==='/'){filePath='index.html';} const file=path.join('.',filePath); if(!fs.existsSync(file)){res.writeHead(404);res.end('Not found');return;} const ext=path.extname(file).slice(1); res.writeHead(200,{'Content-Type':mime[ext]||'text/plain','Cache-Control':'no-cache, no-store, must-revalidate','Pragma':'no-cache','Expires':'0'}); fs.createReadStream(file).pipe(res);}); server.listen(8080,()=>console.log('🚀 Server running at http://localhost:8080\\n📁 Serving current directory\\n🔄 Files will be served fresh (no cache)'));\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}

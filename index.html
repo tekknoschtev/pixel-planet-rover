@@ -12,13 +12,30 @@
     <div id="ui">
         <h3>Pixel Rover Planet</h3>
         <p>Position: <span id="position">0, 0, 0</span></p>
+        <button onclick="showPlanetModal()" style="background: #0066cc; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-family: monospace;">Change Planet</button>
     </div>
     
     <div id="controls">
         <p>WASD: Move Rover | Mouse: Rotate View</p>
     </div>
 
+    <!-- Planet Selection Modal -->
+    <div id="planetModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Select Planet</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="planetGrid" class="planet-grid">
+                    <!-- Planet options will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="js/planetTypes.js"></script>
     <script src="js/game.js"></script>
 </body>
 </html>
