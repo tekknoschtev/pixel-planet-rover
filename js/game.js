@@ -47,7 +47,7 @@ async function init() {
     
     // Create camera - positioned to look at rover from behind/above
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 15, 25);
+//    camera.position.set(0, 15, 25);
     camera.lookAt(0, 0, 0);
     
     // Create renderer
@@ -71,6 +71,7 @@ async function init() {
     
     // Start render loop
     animate();
+    
 }
 
 function createPlanet(planetType = null) {
@@ -371,10 +372,10 @@ function setupControls() {
     // Mouse controls for camera - simpler rotation around rover
     let mouseDown = false;
     let mouseX = 0, mouseY = 0;
-    let cameraAngle = { theta: 0, phi: 0.3 };
+    let cameraAngle = { theta: 0, phi: 1.1};
     
     function updateCameraPosition() {
-        const distance = 35;
+        const distance = 60;
         const x = distance * Math.sin(cameraAngle.phi) * Math.cos(cameraAngle.theta);
         const y = distance * Math.cos(cameraAngle.phi) + planetRadius;
         const z = distance * Math.sin(cameraAngle.phi) * Math.sin(cameraAngle.theta);
@@ -411,6 +412,9 @@ function setupControls() {
     
     // Initialize camera position
     updateCameraPosition();
+    
+    // Make updateCameraPosition globally accessible for delayed initialization
+    window.updateCameraPosition = updateCameraPosition;
     
     // Handle window resize
     window.addEventListener('resize', () => {
@@ -469,6 +473,11 @@ function animate() {
     
     handleRoverMovement();
     updateRoverPhysics(); // New physics update
+    
+    // Update camera to continuously follow rover
+    if (window.updateCameraPosition) {
+        window.updateCameraPosition();
+    }
     
     // No auto-rotation - planet only moves with rover movement
     
