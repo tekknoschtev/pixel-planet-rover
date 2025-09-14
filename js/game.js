@@ -22,6 +22,13 @@ const angularDamping = 0.95; // Rotational damping (prevents spinning)
 const stabilityForce = 0.05; // How strongly rover tries to right itself
 let isGrounded = false; // Is rover touching ground?
 
+// Particle system variables
+let dustParticleSystem = null;
+let dustParticles = [];
+const maxDustParticles = 50;
+let lastRoverMovement = 0;
+let lastLandingTime = 0;
+
 // Multi-point contact detection
 const wheelOffsets = [
     { x: -2.5, z: 2, name: "front-left" },   // Front-left wheel
@@ -65,6 +72,9 @@ async function init() {
     
     // Add lighting
     addLighting();
+    
+    // Create dust particle system
+    createDustParticleSystem();
     
     // Set up controls
     setupControls();
@@ -216,6 +226,159 @@ function createRover() {
     positionRoverOnPlanet();
     scene.add(rover);
 }
+
+function createDustParticleSystem() {
+    // Create dust particles using individual small spheres instead of Points
+    dustParticles = [];
+    
+    // Get planet-specific dust color
+    const atmosphereProps = planetTypeManager.getAtmosphereProperties();
+    let dustColor = 0xCC9966; // Default dust color
+    
+    if (atmosphereProps && atmosphereProps.particles && atmosphereProps.particles.color) {
+        dustColor = atmosphereProps.particles.color;
+    }
+    
+    // Create geometry and material for all particles
+    const particleGeometry = new THREE.SphereGeometry(0.5, 4, 4); // Small low-poly sphere
+    const particleMaterial = new THREE.MeshBasicMaterial({
+        color: dustColor, // Planet-specific dust color
+        transparent: true,
+        opacity: 0.8
+    });
+    
+    for (let i = 0; i < maxDustParticles; i++) {
+        // Create individual mesh for each particle
+        const particleMesh = new THREE.Mesh(particleGeometry, particleMaterial);
+        particleMesh.position.set(0, -1000, 0); // Start off-screen
+        particleMesh.visible = false; // Hide initially
+        scene.add(particleMesh);
+        
+        dustParticles.push({
+            mesh: particleMesh,
+            position: new THREE.Vector3(0, -1000, 0), // Position in planet-local coordinates
+            velocity: new THREE.Vector3(0, 0, 0), // Velocity in planet-local coordinates
+            life: 0,
+            maxLife: 0,
+            size: 1,
+            alpha: 0,
+            planetRotationAtSpawn: new THREE.Quaternion() // Store planet rotation when particle was spawned
+        });
+    }
+    
+    console.log('Created', maxDustParticles, 'dust particle meshes with color:', dustColor.toString(16));
+}
+
+function spawnDustParticles(position, velocity, count = 5) {
+    // Find available particles
+    for (let i = 0; i < count && i < maxDustParticles; i++) {
+        // Find first dead particle
+        const deadParticleIndex = dustParticles.findIndex(p => p.life <= 0);
+        if (deadParticleIndex === -1) break;
+        
+        const particle = dustParticles[deadParticleIndex];
+        
+        // Convert world position to planet-local coordinates
+        const localPosition = position.clone();
+        localPosition.x += (Math.random() - 0.5) * 4; // Spread around rover
+        localPosition.z += (Math.random() - 0.5) * 4;
+        
+        // Convert to planet-local coordinates by applying inverse planet rotation
+        const inverseQuaternion = planetQuaternion.clone().invert();
+        localPosition.applyQuaternion(inverseQuaternion);
+        
+        // Set particle properties in planet-local space
+        particle.position.copy(localPosition);
+        
+        // Convert velocity to planet-local space as well
+        const localVelocity = velocity.clone();
+        localVelocity.x += (Math.random() - 0.5) * 0.5; // More sideways spread for movement
+        localVelocity.y += Math.random() * 0.8 + 0.2; // More upward motion for visible arcs
+        localVelocity.z += (Math.random() - 0.5) * 0.5; // More sideways spread
+        localVelocity.applyQuaternion(inverseQuaternion);
+        
+        particle.velocity.copy(localVelocity);
+        particle.life = 1.5; // Shorter life for more realistic dust
+        particle.maxLife = 1.5; 
+        particle.size = 1 + Math.random() * 1.5; // Random size variation
+        particle.alpha = 0.8;
+        particle.planetRotationAtSpawn.copy(planetQuaternion); // Store current planet rotation
+    }
+}
+
+function updateDustParticles() {
+    let aliveParticles = 0;
+    for (let i = 0; i < dustParticles.length; i++) {
+        const particle = dustParticles[i];
+        
+        if (particle.life > 0) {
+            aliveParticles++;
+            
+            // Update physics in planet-local space with gravitational pull toward planet center
+            
+            // Calculate distance from planet center
+            const distanceFromCenter = particle.position.length();
+            
+            // Apply gentler radial gravity toward planet center (simulates planetary gravity)
+            if (distanceFromCenter > planetRadius + 5) { // Only apply when significantly above surface
+                const gravityDirection = particle.position.clone().normalize().multiplyScalar(-1);
+                const gravityStrength = 0.02; // Much gentler gravity
+                const gravityForce = gravityDirection.multiplyScalar(gravityStrength);
+                particle.velocity.add(gravityForce);
+            }
+            
+            // Apply gentler air resistance
+            particle.velocity.multiplyScalar(0.96); // Less air resistance for more movement 
+            
+            // Update position
+            particle.position.add(particle.velocity);
+            
+            // Gentler surface interaction - only when very close to surface
+            const surfaceDistance = distanceFromCenter - planetRadius;
+            if (surfaceDistance < 1) { // Within 1 unit of surface
+                // Soft bounce with less energy loss
+                const surfaceNormal = particle.position.clone().normalize();
+                const velocityDotNormal = particle.velocity.dot(surfaceNormal);
+                
+                if (velocityDotNormal < 0) { // Moving toward surface
+                    // Gentler reflection with less damping
+                    const reflection = surfaceNormal.multiplyScalar(velocityDotNormal * 2);
+                    particle.velocity.sub(reflection);
+                    particle.velocity.multiplyScalar(0.7); // Less energy loss on bounce
+                    
+                    // Push particle slightly away from surface
+                    particle.position.normalize().multiplyScalar(planetRadius + 1.5);
+                }
+            }
+            
+            // Update life
+            particle.life -= 0.016; // ~60fps frame time
+            
+            // Calculate fade alpha
+            const fadeAlpha = Math.max(0, particle.life / particle.maxLife);
+            
+            // Convert planet-local position to world position by applying current planet rotation
+            const worldPosition = particle.position.clone();
+            worldPosition.applyQuaternion(planetQuaternion);
+            
+            // Update mesh position and visibility
+            particle.mesh.position.copy(worldPosition);
+            particle.mesh.visible = true;
+            particle.mesh.material.opacity = fadeAlpha * 0.8;
+            
+            // Scale particle as it fades
+            const scale = 0.5 + (1 - fadeAlpha) * 0.5;
+            particle.mesh.scale.setScalar(scale);
+        } else {
+            // Hide dead particles
+            particle.mesh.visible = false;
+            particle.mesh.position.set(0, -1000, 0);
+        }
+    }
+    
+    // Optional debug logging (removed for cleaner console)
+}
+
 
 function positionRoverOnPlanet() {
     // Apply quaternion rotation to planet first
@@ -439,6 +602,7 @@ function handleRoverMovement() {
     const moveSpeed = 0.02 * (baseRadius / planetRadius);
     const turnSpeed = 0.03;
     let moved = false;
+    let forwardMovement = false; // Track if rover is actually moving forward/backward
     
     // No hotkey handling needed
     
@@ -460,6 +624,7 @@ function handleRoverMovement() {
         rotationQuaternion.setFromAxisAngle(rotationAxis, -moveSpeed); // Flip sign
         planetQuaternion.multiplyQuaternions(rotationQuaternion, planetQuaternion);
         moved = true;
+        forwardMovement = true;
     }
     if (keys['KeyS']) {
         // Backward movement - opposite of forward
@@ -468,6 +633,7 @@ function handleRoverMovement() {
         rotationQuaternion.setFromAxisAngle(rotationAxis, moveSpeed); // Flip sign
         planetQuaternion.multiplyQuaternions(rotationQuaternion, planetQuaternion);
         moved = true;
+        forwardMovement = true;
     }
     
     // Wrap longitude for display purposes only
@@ -475,6 +641,42 @@ function handleRoverMovement() {
     if (roverPosition.lon < -180) roverPosition.lon += 360;
     
     if (moved) {
+        // Only spawn dust particles when actually moving forward/backward and grounded
+        if (forwardMovement && isGrounded && Date.now() - lastRoverMovement > 150) { // Throttle dust spawning
+            // Spawn particles from rear wheel positions for proper trail effect
+            const rearLeftWheel = new THREE.Vector3(-2.5, 0, -2); // Local wheel position
+            const rearRightWheel = new THREE.Vector3(2.5, 0, -2); // Local wheel position
+            
+            // Transform wheel positions to world space based on rover rotation
+            const cosYaw = Math.cos(roverRotation.yaw);
+            const sinYaw = Math.sin(roverRotation.yaw);
+            
+            // Left wheel world position
+            const leftWheelWorld = new THREE.Vector3(
+                roverPhysicsPosition.x + rearLeftWheel.x * cosYaw - rearLeftWheel.z * sinYaw,
+                roverPhysicsPosition.y - 1, // Lower to ground level
+                roverPhysicsPosition.z + rearLeftWheel.x * sinYaw + rearLeftWheel.z * cosYaw
+            );
+            
+            // Right wheel world position  
+            const rightWheelWorld = new THREE.Vector3(
+                roverPhysicsPosition.x + rearRightWheel.x * cosYaw - rearRightWheel.z * sinYaw,
+                roverPhysicsPosition.y - 1, // Lower to ground level
+                roverPhysicsPosition.z + rearRightWheel.x * sinYaw + rearRightWheel.z * cosYaw
+            );
+            
+            const movementVelocity = new THREE.Vector3(
+                Math.sin(roverHeading) * 0.15, // Reduced motion
+                0.08, // Even less upward motion
+                -Math.cos(roverHeading) * 0.15 // Reduced backward motion  
+            );
+            
+            // Spawn particles from both rear wheels
+            spawnDustParticles(leftWheelWorld, movementVelocity, 1);
+            spawnDustParticles(rightWheelWorld, movementVelocity, 1);
+            lastRoverMovement = Date.now();
+        }
+        
         positionRoverOnPlanet();
     }
 }
@@ -484,6 +686,7 @@ function animate() {
     
     handleRoverMovement();
     updateRoverPhysics(); // New physics update
+    updateDustParticles(); // Update particle system
     
     // Update camera to continuously follow rover
     if (window.updateCameraPosition) {
@@ -522,12 +725,25 @@ function updateRoverPhysics() {
     
     // Determine overall ground contact and lowest contact point
     const contactResults = calculateGroundContact();
+    const wasGrounded = isGrounded;
     isGrounded = contactResults.anyGrounded;
     
     if (contactResults.lowestContactHeight !== null) {
         const groundDistance = roverPhysicsPosition.y - contactResults.lowestContactHeight;
         
         if (groundDistance <= 0.2) { // Close enough to ground to be considered "touching"
+            // Detect landing for dust particles
+            const landingImpact = Math.abs(roverVelocity.y);
+            if (!wasGrounded && isGrounded && landingImpact > 0.3) { // Higher threshold to prevent small landing puffs
+                // Rover just landed with significant impact - reduced particle count
+                spawnDustParticles(
+                    roverPhysicsPosition.clone(),
+                    new THREE.Vector3(0, landingImpact * 0.5, 0), // Much less upward velocity
+                    Math.min(Math.floor(landingImpact * 5) + 1, 4) // Fewer particles, max 4
+                );
+                lastLandingTime = Date.now();
+            }
+            
             // Settle rover onto ground
             roverPhysicsPosition.y = contactResults.lowestContactHeight;
             
@@ -766,11 +982,19 @@ function switchPlanet(planetType) {
             scene.remove(rover);
         }
         
+        // Remove existing dust particle system
+        if (dustParticleSystem) {
+            scene.remove(dustParticleSystem);
+        }
+        
         // Create new planet with the selected type
         createPlanet();
         
         // Recreate rover with updated materials
         createRover();
+        
+        // Recreate dust particle system
+        createDustParticleSystem();
         
         // Update lighting for the new planet type
         addLighting();
