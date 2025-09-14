@@ -29,6 +29,7 @@ const maxDustParticles = 50;
 let lastRoverMovement = 0;
 let lastLandingTime = 0;
 
+
 // Multi-point contact detection
 const wheelOffsets = [
     { x: -2.5, z: 2, name: "front-left" },   // Front-left wheel
@@ -269,6 +270,7 @@ function createDustParticleSystem() {
     console.log('Created', maxDustParticles, 'dust particle meshes with color:', dustColor.toString(16));
 }
 
+
 function spawnDustParticles(position, velocity, count = 5) {
     // Find available particles
     for (let i = 0; i < count && i < maxDustParticles; i++) {
@@ -378,6 +380,7 @@ function updateDustParticles() {
     
     // Optional debug logging (removed for cleaner console)
 }
+
 
 
 function positionRoverOnPlanet() {
@@ -674,6 +677,8 @@ function handleRoverMovement() {
             // Spawn particles from both rear wheels
             spawnDustParticles(leftWheelWorld, movementVelocity, 1);
             spawnDustParticles(rightWheelWorld, movementVelocity, 1);
+            
+            
             lastRoverMovement = Date.now();
         }
         
