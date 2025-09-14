@@ -6,11 +6,41 @@ let roverHeading = Math.PI / 2; // rover's facing direction in radians (start fa
 let planetQuaternion = new THREE.Quaternion(); // Use quaternion instead of Euler rotations
 let keys = {};
 
+// Terrain following variables
+let roverRotation = { pitch: 0, roll: 0, yaw: -Math.PI / 2 }; // Initialize yaw to match north heading
+let targetRotation = { pitch: 0, roll: 0, yaw: 0 };
+const rotationLerpSpeed = 0.15; // How fast to interpolate (0-1, higher = faster)
+
+// Physics variables
+let roverVelocity = new THREE.Vector3(0, 0, 0); // Rover's current velocity
+let roverPhysicsPosition = new THREE.Vector3(0, planetRadius + 20, 0); // Physics position (starts above surface)
+let roverAngularVelocity = new THREE.Vector3(0, 0, 0); // Rover's rotational velocity
+const gravity = -0.3; // Gravity acceleration (negative = downward) - reduced for better settling
+const groundDamping = 0.7; // Energy loss when hitting ground (0-1) - increased for better settling
+const airDamping = 0.99; // Air resistance (close to 1 = little resistance) - reduced air drag
+const angularDamping = 0.95; // Rotational damping (prevents spinning)
+const stabilityForce = 0.05; // How strongly rover tries to right itself
+let isGrounded = false; // Is rover touching ground?
+
+// Multi-point contact detection
+const wheelOffsets = [
+    { x: -2.5, z: 2, name: "front-left" },   // Front-left wheel
+    { x: 2.5, z: 2, name: "front-right" },   // Front-right wheel  
+    { x: -2.5, z: -2, name: "rear-left" },   // Rear-left wheel
+    { x: 2.5, z: -2, name: "rear-right" }    // Rear-right wheel
+];
+let wheelContacts = {
+    "front-left": { height: 0, grounded: false },
+    "front-right": { height: 0, grounded: false },
+    "rear-left": { height: 0, grounded: false },
+    "rear-right": { height: 0, grounded: false }
+};
+
 // Initialize the game
 async function init() {
     // Load planet configurations first
     await planetTypeManager.loadPlanetConfigs();
-    
+
     // Create scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0a);
@@ -47,6 +77,7 @@ function createPlanet(planetType = null) {
     // Get planet configuration
     const materialProps = planetTypeManager.getMaterialProperties(planetType);
     const terrainProps = planetTypeManager.getTerrainProperties(planetType);
+
     
     // Use fallback values if configuration isn't loaded
     const planetColor = materialProps ? materialProps.color : 0x8B4513;
@@ -55,7 +86,7 @@ function createPlanet(planetType = null) {
     const heightVariation = terrainProps ? terrainProps.heightVariation : 3;
     
     // Create higher quality planet sphere
-    const geometry = new THREE.IcosahedronGeometry(planetRadius, 4);
+    const geometry = new THREE.IcosahedronGeometry(planetRadius, 12);
     
     // Add structured terrain variation using noise function
     const vertices = geometry.attributes.position.array;
@@ -177,19 +208,70 @@ function createRover() {
 }
 
 function positionRoverOnPlanet() {
-    // Position rover closer to surface with slight terrain following
-    const surfaceHeight = getSurfaceHeightAtPosition(0, 0);
-    rover.position.set(0, surfaceHeight + 1, 0);
-    
-    // Rotate rover to face its heading direction (flip visual rotation)
-    rover.rotation.set(0, -roverHeading, 0);
-    
-    // Apply quaternion rotation to planet
+    // Apply quaternion rotation to planet first
     planet.quaternion.copy(planetQuaternion);
     
-    // Update position display
+    // Only handle yaw rotation for heading - physics system now handles pitch/roll
+    roverRotation.yaw = lerp(roverRotation.yaw, -roverHeading, rotationLerpSpeed);
+    
+    // Update position display with wheel contact info
+    const contactResults = calculateGroundContact();
+    const groundStatus = isGrounded ? `Grounded (${contactResults.groundedCount}/4 wheels)` : "Airborne";
     document.getElementById('position').textContent = 
-        `Lat: ${roverPosition.lat.toFixed(1)}, Lon: ${roverPosition.lon.toFixed(1)}, Heading: ${(roverHeading * 180 / Math.PI).toFixed(1)}°`;
+        `Lat: ${roverPosition.lat.toFixed(1)}, Lon: ${roverPosition.lon.toFixed(1)}, Heading: ${(roverHeading * 180 / Math.PI).toFixed(1)}° | ${groundStatus}`;
+}
+
+function lerp(start, end, factor) {
+    return start + (end - start) * factor;
+}
+
+function calculateWheelBasedRotation() {
+    // Calculate rover orientation from wheel contact heights
+    const frontLeftHeight = wheelContacts["front-left"].height;
+    const frontRightHeight = wheelContacts["front-right"].height;
+    const rearLeftHeight = wheelContacts["rear-left"].height;
+    const rearRightHeight = wheelContacts["rear-right"].height;
+    
+    // Calculate average heights for front and rear
+    const frontAverage = (frontLeftHeight + frontRightHeight) / 2;
+    const rearAverage = (rearLeftHeight + rearRightHeight) / 2;
+    
+    // Calculate average heights for left and right  
+    const leftAverage = (frontLeftHeight + rearLeftHeight) / 2;
+    const rightAverage = (frontRightHeight + rearRightHeight) / 2;
+    
+    // Calculate pitch from front-to-rear height difference
+    const wheelBase = 4; // Distance between front and rear wheels (2 + 2)
+    const pitch = Math.atan2(frontAverage - rearAverage, wheelBase);
+    
+    // Calculate roll from left-to-right height difference  
+    const wheelTrack = 5; // Distance between left and right wheels (2.5 + 2.5)
+    const roll = Math.atan2(rightAverage - leftAverage, wheelTrack);
+    
+    return {
+        pitch: pitch * 0.8, // Dampen the effect for stability
+        roll: roll * 0.8,   // Dampen the effect for stability
+        yaw: 0
+    };
+}
+
+function calculateTerrainRotation(surfaceNormal) {
+    // Legacy function - kept for fallback
+    // Surface normal is already in local rover space from our height sampling method
+    
+    // Calculate pitch (forward/backward tilt)
+    // When surface slopes up toward +Z (forward), rover should pitch up (negative pitch)
+    const pitch = -Math.atan2(surfaceNormal.z, surfaceNormal.y);
+    
+    // Calculate roll (left/right tilt)  
+    // When surface slopes up toward +X (right), rover should roll right (positive roll)
+    const roll = Math.atan2(surfaceNormal.x, surfaceNormal.y);
+    
+    return {
+        pitch: pitch * 0.8, // Increase tilt intensity to make effect more visible
+        roll: roll * 0.8,   // Increase tilt intensity to make effect more visible
+        yaw: 0
+    };
 }
 
 function getSurfaceHeightAtPosition(localX, localZ) {
@@ -205,6 +287,39 @@ function getSurfaceHeightAtPosition(localX, localZ) {
         return intersects[0].point.y;
     }
     return planetRadius; // fallback
+}
+
+function getSurfaceInfoAtPosition(localX, localZ) {
+    // Get height at center position
+    const centerHeight = getSurfaceHeightAtPosition(localX, localZ);
+    
+    // Sample nearby points to calculate surface normal
+    const sampleDistance = 1.0;
+    const frontHeight = getSurfaceHeightAtPosition(localX, localZ + sampleDistance);
+    const backHeight = getSurfaceHeightAtPosition(localX, localZ - sampleDistance);
+    const rightHeight = getSurfaceHeightAtPosition(localX + sampleDistance, localZ);
+    const leftHeight = getSurfaceHeightAtPosition(localX - sampleDistance, localZ);
+    
+    // Calculate surface normal from height differences
+    const normal = new THREE.Vector3();
+    
+    // X component (left-right slope)
+    normal.x = (leftHeight - rightHeight) / (2 * sampleDistance);
+    
+    // Y component (always points up)
+    normal.y = 1.0;
+    
+    // Z component (front-back slope)  
+    normal.z = (backHeight - frontHeight) / (2 * sampleDistance);
+    
+    // Normalize the surface normal
+    normal.normalize();
+    
+    return {
+        height: centerHeight,
+        normal: normal,
+        point: new THREE.Vector3(localX, centerHeight, localZ)
+    };
 }
 
 function addLighting(planetType = null) {
@@ -353,10 +468,269 @@ function animate() {
     requestAnimationFrame(animate);
     
     handleRoverMovement();
+    updateRoverPhysics(); // New physics update
     
     // No auto-rotation - planet only moves with rover movement
     
     renderer.render(scene, camera);
+}
+
+function updateRoverPhysics() {
+    // Apply gravity acceleration
+    roverVelocity.y += gravity;
+    
+    // Apply air resistance
+    roverVelocity.multiplyScalar(airDamping);
+    
+    // Apply settling assistance - extra downward force when close to ground
+    const settlingDistance = 3.0; // Distance within which settling assistance applies
+    const lowestPossibleContact = getLowestPossibleContactHeight();
+    if (lowestPossibleContact !== null) {
+        const distanceToGround = roverPhysicsPosition.y - lowestPossibleContact;
+        if (distanceToGround > 0 && distanceToGround < settlingDistance) {
+            // Apply gentle settling force
+            const settlingForce = -0.1 * (1 - distanceToGround / settlingDistance);
+            roverVelocity.y += settlingForce;
+        }
+    }
+    
+    // Update physics position with velocity
+    roverPhysicsPosition.add(roverVelocity);
+    
+    // Check ground contact for each wheel and update rover orientation naturally
+    updateWheelContactsAndOrientation();
+    
+    // Determine overall ground contact and lowest contact point
+    const contactResults = calculateGroundContact();
+    isGrounded = contactResults.anyGrounded;
+    
+    if (contactResults.lowestContactHeight !== null) {
+        const groundDistance = roverPhysicsPosition.y - contactResults.lowestContactHeight;
+        
+        if (groundDistance <= 0.2) { // Close enough to ground to be considered "touching"
+            // Settle rover onto ground
+            roverPhysicsPosition.y = contactResults.lowestContactHeight;
+            
+            // Apply bounce/damping to vertical velocity
+            if (roverVelocity.y < 0) { // Only if moving downward
+                roverVelocity.y *= -groundDamping; // Reverse and reduce velocity
+                
+                // Stop very small bounces - be more aggressive about settling
+                if (Math.abs(roverVelocity.y) < 0.05) {
+                    roverVelocity.y = 0;
+                }
+            }
+            
+            // If rover is very close to settled, snap it down
+            if (Math.abs(groundDistance) < 0.05 && Math.abs(roverVelocity.y) < 0.02) {
+                roverPhysicsPosition.y = contactResults.lowestContactHeight;
+                roverVelocity.y = 0;
+            }
+        }
+    }
+    
+    // Update rover visual position to match physics
+    rover.position.copy(roverPhysicsPosition);
+}
+
+function updateWheelContactsAndOrientation() {
+    // Get ground heights at each wheel position (ignoring current rover rotation)
+    const wheelHeights = {};
+    
+    wheelOffsets.forEach(wheel => {
+        // Calculate wheel position relative to rover center (in local coordinates)
+        const wheelWorldX = roverPhysicsPosition.x + wheel.x * Math.cos(roverRotation.yaw) - wheel.z * Math.sin(roverRotation.yaw);
+        const wheelWorldZ = roverPhysicsPosition.z + wheel.x * Math.sin(roverRotation.yaw) + wheel.z * Math.cos(roverRotation.yaw);
+        
+        // Get ground height at this wheel position
+        const groundHeight = getSurfaceHeightAtPosition(wheelWorldX, wheelWorldZ);
+        wheelHeights[wheel.name] = groundHeight;
+        
+        // Update wheel contact info
+        wheelContacts[wheel.name].height = groundHeight + 1.0; // Rover center height when wheel touches
+        wheelContacts[wheel.name].grounded = roverPhysicsPosition.y <= groundHeight + 1.8; // More generous tolerance for contact detection
+    });
+    
+    // Calculate natural rover orientation from ground heights
+    const frontLeftH = wheelHeights["front-left"];
+    const frontRightH = wheelHeights["front-right"];  
+    const rearLeftH = wheelHeights["rear-left"];
+    const rearRightH = wheelHeights["rear-right"];
+    
+    // Calculate pitch from front-to-rear slope
+    const frontAvg = (frontLeftH + frontRightH) / 2;
+    const rearAvg = (rearLeftH + rearRightH) / 2;
+    const wheelBase = 4; // Distance between front and rear axles
+    const targetPitch = Math.atan2(frontAvg - rearAvg, wheelBase) * 0.7; // Dampen for stability
+    
+    // Calculate roll from left-to-right slope  
+    const leftAvg = (frontLeftH + rearLeftH) / 2;
+    const rightAvg = (frontRightH + rearRightH) / 2;
+    const wheelTrack = 5; // Distance between left and right wheels
+    const targetRoll = Math.atan2(rightAvg - leftAvg, wheelTrack) * 0.7; // Dampen for stability
+    
+    // Apply gravitational torque for realistic tilting
+    applyGravitationalTorque(wheelHeights);
+    
+    // Apply rotation smoothly but responsively
+    if (isGrounded) {
+        const responsiveness = 0.3; // How quickly rover follows terrain (higher = more responsive)
+        roverRotation.pitch = lerp(roverRotation.pitch, targetPitch, responsiveness);
+        roverRotation.roll = lerp(roverRotation.roll, targetRoll, responsiveness);
+        
+        // Apply the rotation to the rover
+        rover.rotation.set(roverRotation.pitch, roverRotation.yaw, roverRotation.roll);
+    }
+}
+
+function applyGravitationalTorque(wheelHeights) {
+    // Get grounded wheel positions in world space
+    const groundedWheelPositions = [];
+    
+    wheelOffsets.forEach(wheel => {
+        if (wheelContacts[wheel.name].grounded) {
+            // Transform wheel position to world coordinates
+            const wheelWorldX = roverPhysicsPosition.x + wheel.x * Math.cos(roverRotation.yaw) - wheel.z * Math.sin(roverRotation.yaw);
+            const wheelWorldZ = roverPhysicsPosition.z + wheel.x * Math.sin(roverRotation.yaw) + wheel.z * Math.cos(roverRotation.yaw);
+            groundedWheelPositions.push({ x: wheelWorldX, z: wheelWorldZ, localX: wheel.x, localZ: wheel.z });
+        }
+    });
+    
+    // Need at least one contact point for stability analysis
+    if (groundedWheelPositions.length === 0) return;
+    
+    // Calculate center of mass projection onto ground plane  
+    const centerOfMassLocal = { x: 0, z: 0 }; // Rover center of mass is at geometric center
+    
+    // Check if center of mass is supported by contact points
+    const isStable = isCenterOfMassSupported(centerOfMassLocal, groundedWheelPositions);
+    
+    if (!isStable) {
+        // Calculate torque direction to tip rover toward stability
+        const stabilityTorque = calculateStabilityTorque(centerOfMassLocal, groundedWheelPositions);
+        
+        // Apply the torque
+        const torqueStrength = 0.12; // Increased for more decisive tipping
+        roverAngularVelocity.x += stabilityTorque.pitch * torqueStrength;
+        roverAngularVelocity.z += stabilityTorque.roll * torqueStrength;
+    }
+    
+    // Apply angular damping
+    roverAngularVelocity.multiplyScalar(angularDamping);
+    
+    // Apply angular velocity to rover rotation
+    roverRotation.pitch += roverAngularVelocity.x * 0.03;
+    roverRotation.roll += roverAngularVelocity.z * 0.03;
+    
+    // Limit extreme rotations
+    roverRotation.pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, roverRotation.pitch));
+    roverRotation.roll = Math.max(-Math.PI/2, Math.min(Math.PI/2, roverRotation.roll));
+}
+
+function isCenterOfMassSupported(centerOfMass, contactPoints) {
+    if (contactPoints.length === 0) return false;
+    if (contactPoints.length === 1) return false; // Single point can't provide stability
+    if (contactPoints.length === 2) {
+        // Two points: stable only if center of mass is between them
+        const p1 = contactPoints[0];
+        const p2 = contactPoints[1];
+        
+        // Check if center of mass is on the line between the two points (with tolerance)
+        const tolerance = 1.5; // Allow some distance from the line
+        const distanceFromLine = distancePointToLine(centerOfMass, p1, p2);
+        return distanceFromLine < tolerance;
+    }
+    
+    // 3+ points: use polygon containment
+    return isPointInPolygon(centerOfMass, contactPoints);
+}
+
+function calculateStabilityTorque(centerOfMass, contactPoints) {
+    // Calculate the direction the rover needs to tip to become stable
+    const torque = { pitch: 0, roll: 0 };
+    
+    if (contactPoints.length === 1) {
+        // Single contact point - tip toward center
+        const contact = contactPoints[0];
+        torque.pitch = centerOfMass.z - contact.localZ > 0 ? -1 : 1;
+        torque.roll = centerOfMass.x - contact.localX > 0 ? -1 : 1;
+    } else if (contactPoints.length === 2) {
+        // Two contact points - tip perpendicular to the line between them
+        const p1 = contactPoints[0];
+        const p2 = contactPoints[1];
+        
+        // Calculate perpendicular direction from line to center of mass
+        const lineVec = { x: p2.localX - p1.localX, z: p2.localZ - p1.localZ };
+        const perpendicular = { x: -lineVec.z, z: lineVec.x }; // 90-degree rotation
+        
+        // Normalize and apply
+        const length = Math.sqrt(perpendicular.x * perpendicular.x + perpendicular.z * perpendicular.z);
+        if (length > 0) {
+            torque.roll = (perpendicular.x / length) * 0.5;
+            torque.pitch = -(perpendicular.z / length) * 0.5;
+        }
+    }
+    
+    return torque;
+}
+
+function distancePointToLine(point, lineStart, lineEnd) {
+    const A = point.x - lineStart.localX;
+    const B = point.z - lineStart.localZ;
+    const C = lineEnd.localX - lineStart.localX;
+    const D = lineEnd.localZ - lineStart.localZ;
+    
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    
+    if (lenSq === 0) return Math.sqrt(A * A + B * B);
+    
+    const param = dot / lenSq;
+    let xx, zz;
+    
+    if (param < 0) {
+        xx = lineStart.localX;
+        zz = lineStart.localZ;
+    } else if (param > 1) {
+        xx = lineEnd.localX;
+        zz = lineEnd.localZ;
+    } else {
+        xx = lineStart.localX + param * C;
+        zz = lineStart.localZ + param * D;
+    }
+    
+    const dx = point.x - xx;
+    const dz = point.z - zz;
+    return Math.sqrt(dx * dx + dz * dz);
+}
+
+function isPointInPolygon(point, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        if (((polygon[i].localZ > point.z) !== (polygon[j].localZ > point.z)) &&
+            (point.x < (polygon[j].localX - polygon[i].localX) * (point.z - polygon[i].localZ) / (polygon[j].localZ - polygon[i].localZ) + polygon[i].localX)) {
+            inside = !inside;
+        }
+    }
+    return inside;
+}
+
+function getLowestPossibleContactHeight() {
+    // Get the highest ground height under any wheel (lowest rover position needed for contact)
+    const allWheelHeights = Object.values(wheelContacts).map(contact => contact.height);
+    return allWheelHeights.length > 0 ? Math.max(...allWheelHeights) : null;
+}
+
+function calculateGroundContact() {
+    const groundedWheels = Object.values(wheelContacts).filter(contact => contact.grounded);
+    const anyGrounded = groundedWheels.length > 0;
+    
+    let lowestContactHeight = null;
+    if (anyGrounded) {
+        lowestContactHeight = Math.max(...groundedWheels.map(contact => contact.height));
+    }
+    
+    return { anyGrounded, lowestContactHeight, groundedCount: groundedWheels.length };
 }
 
 // Planet switching function
