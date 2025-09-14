@@ -1,6 +1,6 @@
 # Purpose
 
-This document defines the guiding principles and constraints for building the Pixel Rover Planet mini-game using Claude Code. It exists to keep development focused, lightweight, and aligned with the intended vibe.
+This document defines the guiding principles and constraints for building the Pixel Planet Rover mini-game using Claude Code. It exists to keep development focused, lightweight, and aligned with the intended vibe.
 
 ## Core Values
 
