@@ -78,6 +78,61 @@
                                 <button class="btn btn-secondary" onclick="importPlanet()" style="margin-top: 5px;">Import Planet</button>
                             </div>
                             
+                            <div class="biome-mixing-section">
+                                <div class="control-group">
+                                    <label>
+                                        <input type="checkbox" id="enableBiomeMixing"> Enable Biome Mixing
+                                    </label>
+                                </div>
+                                
+                                <div id="biomeMixingControls" class="biome-mixing-controls" style="display: none;">
+                                    <div class="control-group">
+                                        <label>Mixing Preset:</label>
+                                        <select id="biomeMixingPreset">
+                                            <option value="">Custom</option>
+                                            <option value="frozen-desert">Frozen Desert</option>
+                                            <option value="volcanic-moon">Volcanic Moon</option>
+                                            <option value="icy-mars">Icy Mars</option>
+                                            <option value="martian-volcanic">Martian Volcanic</option>
+                                            <option value="frozen-wasteland">Frozen Wasteland</option>
+                                            <option value="desert-volcanic">Desert Volcanic</option>
+                                            <option value="triple-mix">Triple Mix</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="biome-sliders">
+                                        <div class="slider-group">
+                                            <label>Mars Influence: <span id="marsValue">0.0</span></label>
+                                            <input type="range" id="marsSlider" min="0" max="1" step="0.1" value="0">
+                                        </div>
+                                        
+                                        <div class="slider-group">
+                                            <label>Moon Influence: <span id="moonValue">0.0</span></label>
+                                            <input type="range" id="moonSlider" min="0" max="1" step="0.1" value="0">
+                                        </div>
+                                        
+                                        <div class="slider-group">
+                                            <label>Ice Influence: <span id="iceValue">0.0</span></label>
+                                            <input type="range" id="iceSlider" min="0" max="1" step="0.1" value="0">
+                                        </div>
+                                        
+                                        <div class="slider-group">
+                                            <label>Volcanic Influence: <span id="volcanicValue">0.0</span></label>
+                                            <input type="range" id="volcanicSlider" min="0" max="1" step="0.1" value="0">
+                                        </div>
+                                        
+                                        <div class="slider-group">
+                                            <label>Desert Influence: <span id="desertValue">0.0</span></label>
+                                            <input type="range" id="desertSlider" min="0" max="1" step="0.1" value="0">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="biome-info">
+                                        <small>Total Influence: <span id="totalInfluence">0.0</span> (will be normalized)</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div class="parameter-sliders">
                                 <div class="slider-group">
                                     <label>Planet Size: <span id="radiusValue">80</span></label>

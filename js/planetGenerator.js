@@ -296,13 +296,26 @@ class PlanetGenerator {
 
         const rng = this.createSeededRNG(seed);
         
+        // Handle biome mixing
+        let biomeMix = customParams?.biomeMix || null;
+        
         // Choose random base biome if not specified
         if (!baseBiome) {
             const biomes = ['mars', 'moon', 'ice', 'volcanic', 'desert'];
             baseBiome = rng.choice(biomes);
         }
+        
+        // Generate biome mix if not provided
+        if (!biomeMix && customParams?.enableBiomeMixing) {
+            biomeMix = this.generateRandomBiomeMix(baseBiome, rng);
+        }
 
-        const ranges = this.getBiomeGenerationRanges()[baseBiome];
+        // Get base ranges for primary biome
+        const allRanges = this.getBiomeGenerationRanges();
+        const baseRanges = allRanges[baseBiome];
+        
+        // If using biome mixing, blend the ranges
+        const ranges = biomeMix ? this.blendBiomeRanges(biomeMix, allRanges, rng) : baseRanges;
         
         // Generate base parameters
         const radius = customParams?.radius ?? rng.range(ranges.radius.min, ranges.radius.max);
@@ -326,13 +339,23 @@ class PlanetGenerator {
         const atmosphere = this.generateAtmosphere(baseBiome, rng, terrain);
         const name = customParams?.name ?? this.generatePlanetName(rng);
 
+        // Update description to reflect biome mixing
+        let description = `Procedurally generated ${baseBiome}-type planet`;
+        if (biomeMix) {
+            const mixedBiomes = Object.keys(biomeMix).filter(b => b !== baseBiome && biomeMix[b] > 0.1);
+            if (mixedBiomes.length > 0) {
+                description = `Mixed ${baseBiome} planet with ${mixedBiomes.join(', ')} influences`;
+            }
+        }
+
         const planetConfig = {
             id: `generated_${seed}`,
             name: name,
-            description: `Procedurally generated ${baseBiome}-type planet`,
+            description: description,
             radius: Math.round(radius),
             seed: seed,
             baseBiome: baseBiome,
+            biomeMix: biomeMix,
             material: {
                 color: materialColor,
                 flatShading: true
@@ -386,6 +409,116 @@ class PlanetGenerator {
     // Clear planet cache
     clearCache() {
         this.generatedPlanets.clear();
+    }
+
+    // Generate random biome mix
+    generateRandomBiomeMix(baseBiome, rng) {
+        const allBiomes = ['mars', 'moon', 'ice', 'volcanic', 'desert'];
+        const availableSecondary = allBiomes.filter(b => b !== baseBiome);
+        
+        // Decide how many secondary biomes to include (0-2)
+        const secondaryCount = rng.intRange(0, Math.min(2, availableSecondary.length));
+        
+        if (secondaryCount === 0) {
+            return null; // No mixing
+        }
+        
+        // Create biome mix with base biome having majority influence
+        const biomeMix = { [baseBiome]: rng.range(0.5, 0.8) };
+        
+        // Add secondary biomes
+        const selectedSecondary = [];
+        for (let i = 0; i < secondaryCount; i++) {
+            const biome = rng.choice(availableSecondary.filter(b => !selectedSecondary.includes(b)));
+            selectedSecondary.push(biome);
+        }
+        
+        // Distribute remaining influence among secondary biomes
+        let remainingInfluence = 1.0 - biomeMix[baseBiome];
+        selectedSecondary.forEach((biome, index) => {
+            if (index === selectedSecondary.length - 1) {
+                // Last biome gets remaining influence
+                biomeMix[biome] = remainingInfluence;
+            } else {
+                const influence = rng.range(0.1, remainingInfluence * 0.7);
+                biomeMix[biome] = influence;
+                remainingInfluence -= influence;
+            }
+        });
+        
+        return biomeMix;
+    }
+
+    // Blend biome ranges based on mixing ratios
+    blendBiomeRanges(biomeMix, allRanges, rng) {
+        const blendedRanges = {
+            radius: { min: 0, max: 0 },
+            material: { color: [] },
+            terrain: {},
+            atmosphere: { fogDensity: { min: 0, max: 0 }, particleDensity: { min: 0, max: 0 } }
+        };
+        
+        // Initialize terrain properties
+        const terrainProps = ['noiseScale', 'heightVariation', 'roughness', 'mountainDensity', 
+                             'valleyDensity', 'craterDensity', 'cliffDensity', 'mesaDensity', 'boulderDensity'];
+        terrainProps.forEach(prop => {
+            blendedRanges.terrain[prop] = { min: 0, max: 0 };
+        });
+        
+        // Blend properties based on biome influence
+        for (const [biome, influence] of Object.entries(biomeMix)) {
+            const ranges = allRanges[biome];
+            if (!ranges) continue;
+            
+            // Blend radius
+            blendedRanges.radius.min += ranges.radius.min * influence;
+            blendedRanges.radius.max += ranges.radius.max * influence;
+            
+            // Collect colors from all biomes
+            blendedRanges.material.color.push(...ranges.material.color);
+            
+            // Blend terrain properties
+            terrainProps.forEach(prop => {
+                blendedRanges.terrain[prop].min += ranges.terrain[prop].min * influence;
+                blendedRanges.terrain[prop].max += ranges.terrain[prop].max * influence;
+            });
+            
+            // Blend atmosphere properties
+            blendedRanges.atmosphere.fogDensity.min += ranges.atmosphere.fogDensity.min * influence;
+            blendedRanges.atmosphere.fogDensity.max += ranges.atmosphere.fogDensity.max * influence;
+            blendedRanges.atmosphere.particleDensity.min += ranges.atmosphere.particleDensity.min * influence;
+            blendedRanges.atmosphere.particleDensity.max += ranges.atmosphere.particleDensity.max * influence;
+        }
+        
+        return blendedRanges;
+    }
+
+    // Create biome mix from ratios
+    createBiomeMix(ratios) {
+        // Normalize ratios to sum to 1.0
+        const total = Object.values(ratios).reduce((sum, val) => sum + val, 0);
+        const normalized = {};
+        
+        for (const [biome, ratio] of Object.entries(ratios)) {
+            if (ratio > 0) {
+                normalized[biome] = ratio / total;
+            }
+        }
+        
+        return Object.keys(normalized).length > 1 ? normalized : null;
+    }
+
+    // Get preset biome mixing templates
+    getBiomeMixingPresets() {
+        return {
+            'frozen-desert': { desert: 0.7, ice: 0.3 },
+            'volcanic-moon': { moon: 0.6, volcanic: 0.4 },
+            'icy-mars': { mars: 0.6, ice: 0.4 },
+            'martian-volcanic': { mars: 0.5, volcanic: 0.5 },
+            'frozen-wasteland': { moon: 0.5, ice: 0.5 },
+            'desert-volcanic': { desert: 0.6, volcanic: 0.4 },
+            'triple-mix': { mars: 0.5, ice: 0.3, volcanic: 0.2 }
+        };
     }
 }
 

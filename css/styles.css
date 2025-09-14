@@ -267,6 +267,44 @@ body {
     border-color: #66aaff;
 }
 
+.biome-mixing-section {
+    background: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.biome-mixing-controls {
+    margin-top: 15px;
+}
+
+.biome-sliders {
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 15px;
+    margin-top: 10px;
+}
+
+.biome-info {
+    text-align: center;
+    margin-top: 10px;
+    padding: 8px;
+    background: #3a3a3a;
+    border-radius: 4px;
+}
+
+.biome-info small {
+    color: #ccc;
+    font-family: monospace;
+}
+
+.control-group input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+}
+
 .parameter-sliders {
     background: #333;
     border: 1px solid #555;
