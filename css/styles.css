@@ -137,11 +137,11 @@ body {
 
 .planet-buttons {
     display: flex;
+    flex-direction: column;
     gap: 10px;
     justify-content: center;
     margin-top: 20px;
     padding-top: 20px;
-    border-top: 1px solid #444;
 }
 
 .btn {
@@ -170,4 +170,346 @@ body {
 
 .btn-secondary:hover {
     background-color: #555;
+}
+
+/* Modal Tabs */
+.modal-tabs {
+    display: flex;
+    border-bottom: 1px solid #444;
+    margin-bottom: 20px;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 12px 20px;
+    background: #333;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #ccc;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.tab-button:hover {
+    background: #404040;
+    color: #fff;
+}
+
+.tab-button.active {
+    background: #404040;
+    border-bottom-color: #66aaff;
+    color: #fff;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Planet Generator UI */
+.generator-content {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 10px;
+}
+
+.generator-section {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+.generator-section h3 {
+    margin: 0 0 10px 0;
+    color: #fff;
+}
+
+.generator-section p {
+    margin: 0;
+    color: #ccc;
+    font-size: 14px;
+}
+
+.generator-controls {
+    margin-bottom: 25px;
+    padding-right: 10px;
+}
+
+.control-group {
+    margin-bottom: 15px;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.control-group input, .control-group select {
+    width: 100%;
+    padding: 8px 12px;
+    background: #444;
+    border: 1px solid #666;
+    border-radius: 4px;
+    color: #fff;
+    font-family: monospace;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.control-group input:focus, .control-group select:focus {
+    outline: none;
+    border-color: #66aaff;
+}
+
+.parameter-sliders {
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.slider-group {
+    margin-bottom: 15px;
+}
+
+.slider-group:last-child {
+    margin-bottom: 0;
+}
+
+.slider-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.slider-group input[type="range"] {
+    width: 100%;
+    height: 6px;
+    background: #555;
+    border-radius: 3px;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.slider-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #66aaff;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.slider-group input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #66aaff;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.generator-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    justify-content: center;
+    padding: 20px 0;
+}
+
+.generated-buttons {
+    text-align: center;
+    padding: 20px 0;
+    margin-top: 20px;
+}
+
+/* Generated planets list */
+#generatedPlanetsList {
+    min-height: 200px;
+}
+
+.no-generated-planets {
+    text-align: center;
+    color: #888;
+    font-style: italic;
+    padding: 50px 20px;
+}
+
+.generated-planet-item {
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.generated-planet-info h4 {
+    margin: 0 0 5px 0;
+    color: #fff;
+}
+
+.generated-planet-info p {
+    margin: 0;
+    color: #ccc;
+    font-size: 12px;
+}
+
+.generated-planet-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.planet-option.generated {
+    position: relative;
+}
+
+.planet-option.generated::before {
+    content: "Generated";
+    position: absolute;
+    top: 5px;
+    right: 30px;
+    background: #66aaff;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+}
+
+.planet-export-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: #444;
+    border: 1px solid #666;
+    border-radius: 4px;
+    color: white;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.planet-export-btn:hover {
+    background: #555;
+    border-color: #777;
+}
+
+/* Toast Notifications */
+#toastContainer {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 350px;
+}
+
+.toast {
+    background: rgba(34, 34, 34, 0.95);
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 15px 20px;
+    color: #fff;
+    font-family: monospace;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease-in-out;
+    position: relative;
+    word-wrap: break-word;
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast.success {
+    border-color: #4CAF50;
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.toast.success::before {
+    content: "✓ ";
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.toast.error {
+    border-color: #f44336;
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.toast.error::before {
+    content: "✗ ";
+    color: #f44336;
+    font-weight: bold;
+}
+
+.toast.info {
+    border-color: #2196F3;
+    background: rgba(33, 150, 243, 0.1);
+}
+
+.toast.info::before {
+    content: "ℹ ";
+    color: #2196F3;
+    font-weight: bold;
+}
+
+.toast.warning {
+    border-color: #FF9800;
+    background: rgba(255, 152, 0, 0.1);
+}
+
+.toast.warning::before {
+    content: "⚠ ";
+    color: #FF9800;
+    font-weight: bold;
+}
+
+.toast-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toast-close:hover {
+    color: #fff;
 }

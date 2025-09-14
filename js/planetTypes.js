@@ -2,6 +2,7 @@
 class PlanetTypeManager {
     constructor() {
         this.planetConfigs = null;
+        this.generatedPlanets = new Map(); // Store generated planets
         this.currentPlanetType = 'mars';
         this.loaded = false;
     }
@@ -76,6 +77,12 @@ class PlanetTypeManager {
             console.warn('Planet configurations not loaded yet');
             return null;
         }
+        
+        // Check if it's a generated planet
+        if (planetType && planetType.startsWith('generated_')) {
+            return this.generatedPlanets.get(planetType);
+        }
+        
         return this.planetConfigs[planetType] || null;
     }
 
@@ -84,11 +91,24 @@ class PlanetTypeManager {
         if (!this.loaded) {
             return [];
         }
-        return Object.keys(this.planetConfigs).map(key => ({
+        
+        // Get preset planets
+        const presetPlanets = Object.keys(this.planetConfigs).map(key => ({
             id: key,
             name: this.planetConfigs[key].name,
-            description: this.planetConfigs[key].description
+            description: this.planetConfigs[key].description,
+            type: 'preset'
         }));
+        
+        // Get generated planets
+        const generatedPlanets = Array.from(this.generatedPlanets.entries()).map(([key, config]) => ({
+            id: key,
+            name: config.name,
+            description: config.description,
+            type: 'generated'
+        }));
+        
+        return [...presetPlanets, ...generatedPlanets];
     }
 
     // Set current planet type
@@ -98,7 +118,7 @@ class PlanetTypeManager {
             return false;
         }
         
-        if (this.planetConfigs[planetType]) {
+        if (this.planetConfigs[planetType] || this.generatedPlanets.has(planetType)) {
             this.currentPlanetType = planetType;
             console.log('Switched to planet type:', planetType);
             return true;
@@ -181,6 +201,93 @@ class PlanetTypeManager {
         if (!config) return null;
 
         return config.terrain;
+    }
+
+    // Add a generated planet to the available planets
+    addGeneratedPlanet(planetConfig) {
+        this.generatedPlanets.set(planetConfig.id, planetConfig);
+        console.log('Added generated planet:', planetConfig.name, planetConfig.id);
+        this.saveGeneratedPlanetsToStorage();
+    }
+
+    // Remove a generated planet
+    removeGeneratedPlanet(planetId) {
+        if (this.generatedPlanets.has(planetId)) {
+            this.generatedPlanets.delete(planetId);
+            console.log('Removed generated planet:', planetId);
+            this.saveGeneratedPlanetsToStorage();
+            return true;
+        }
+        return false;
+    }
+
+    // Clear all generated planets
+    clearGeneratedPlanets() {
+        this.generatedPlanets.clear();
+        console.log('Cleared all generated planets');
+        this.saveGeneratedPlanetsToStorage();
+    }
+
+    // Get generated planets only
+    getGeneratedPlanets() {
+        return Array.from(this.generatedPlanets.entries()).map(([key, config]) => ({
+            id: key,
+            name: config.name,
+            description: config.description,
+            baseBiome: config.baseBiome,
+            seed: config.seed
+        }));
+    }
+
+    // LocalStorage persistence methods
+    saveGeneratedPlanetsToStorage() {
+        try {
+            const planetsData = {};
+            this.generatedPlanets.forEach((config, id) => {
+                planetsData[id] = config;
+            });
+            localStorage.setItem('moonExplorer_generatedPlanets', JSON.stringify(planetsData));
+            console.log('Saved generated planets to localStorage:', Object.keys(planetsData).length, 'planets');
+        } catch (error) {
+            console.error('Failed to save generated planets to localStorage:', error);
+        }
+    }
+
+    loadGeneratedPlanetsFromStorage() {
+        try {
+            const storedData = localStorage.getItem('moonExplorer_generatedPlanets');
+            if (storedData) {
+                const planetsData = JSON.parse(storedData);
+                let loadedCount = 0;
+                
+                for (const [id, config] of Object.entries(planetsData)) {
+                    // Validate the config has required properties
+                    if (config.id && config.name && config.material && config.terrain) {
+                        this.generatedPlanets.set(id, config);
+                        loadedCount++;
+                    } else {
+                        console.warn('Skipping invalid planet config:', id);
+                    }
+                }
+                
+                console.log('Loaded generated planets from localStorage:', loadedCount, 'planets');
+                return loadedCount > 0;
+            }
+        } catch (error) {
+            console.error('Failed to load generated planets from localStorage:', error);
+            // Clear corrupted data
+            localStorage.removeItem('moonExplorer_generatedPlanets');
+        }
+        return false;
+    }
+
+    clearGeneratedPlanetsStorage() {
+        try {
+            localStorage.removeItem('moonExplorer_generatedPlanets');
+            console.log('Cleared generated planets from localStorage');
+        } catch (error) {
+            console.error('Failed to clear generated planets from localStorage:', error);
+        }
     }
 }
 

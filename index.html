@@ -19,6 +19,9 @@
         <p>WASD: Move Rover | Mouse: Rotate View</p>
     </div>
 
+    <!-- Toast Notifications -->
+    <div id="toastContainer"></div>
+
     <!-- Planet Selection Modal -->
     <div id="planetModal" class="modal">
         <div class="modal-content">
@@ -27,8 +30,96 @@
                 <span class="close">&times;</span>
             </div>
             <div class="modal-body">
-                <div id="planetGrid" class="planet-grid">
-                    <!-- Planet options will be populated here -->
+                <div class="modal-tabs">
+                    <button class="tab-button active" onclick="showPlanetTab('preset')">Preset Planets</button>
+                    <button class="tab-button" onclick="showPlanetTab('generator')">Planet Generator</button>
+                    <button class="tab-button" onclick="showPlanetTab('generated')">Generated Planets</button>
+                </div>
+                
+                <div id="presetTab" class="tab-content active">
+                    <div id="planetGrid" class="planet-grid">
+                        <!-- Planet options will be populated here -->
+                    </div>
+                </div>
+                
+                <div id="generatorTab" class="tab-content">
+                    <div class="generator-content">
+                        <div class="generator-section">
+                            <h3>Planet Generator</h3>
+                            <p>Create a unique procedural planet with customizable parameters</p>
+                        </div>
+                        
+                        <div class="generator-controls">
+                            <div class="control-group">
+                                <label>Base Biome:</label>
+                                <select id="baseBiome">
+                                    <option value="">Random</option>
+                                    <option value="mars">Mars-like</option>
+                                    <option value="moon">Moon-like</option>
+                                    <option value="ice">Ice World</option>
+                                    <option value="volcanic">Volcanic</option>
+                                    <option value="desert">Desert</option>
+                                </select>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>Planet Name:</label>
+                                <input type="text" id="planetName" placeholder="Auto-generated">
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>Seed (for sharing):</label>
+                                <input type="text" id="planetSeed" placeholder="Random">
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>Import Planet:</label>
+                                <input type="text" id="importData" placeholder="Paste planet export data here">
+                                <button class="btn btn-secondary" onclick="importPlanet()" style="margin-top: 5px;">Import Planet</button>
+                            </div>
+                            
+                            <div class="parameter-sliders">
+                                <div class="slider-group">
+                                    <label>Planet Size: <span id="radiusValue">80</span></label>
+                                    <input type="range" id="radiusSlider" min="40" max="500" value="80">
+                                </div>
+                                
+                                <div class="slider-group">
+                                    <label>Terrain Roughness: <span id="roughnessValue">0.5</span></label>
+                                    <input type="range" id="roughnessSlider" min="0.1" max="1.0" step="0.1" value="0.5">
+                                </div>
+                                
+                                <div class="slider-group">
+                                    <label>Height Variation: <span id="heightValue">5</span></label>
+                                    <input type="range" id="heightSlider" min="1" max="15" value="5">
+                                </div>
+                                
+                                <div class="slider-group">
+                                    <label>Crater Density: <span id="craterValue">0.4</span></label>
+                                    <input type="range" id="craterSlider" min="0.0" max="1.0" step="0.1" value="0.4">
+                                </div>
+                                
+                                <div class="slider-group">
+                                    <label>Mountain Density: <span id="mountainValue">0.3</span></label>
+                                    <input type="range" id="mountainSlider" min="0.0" max="1.0" step="0.1" value="0.3">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="generator-buttons">
+                            <button class="btn btn-secondary" onclick="randomizeGeneratorParams()">Randomize All</button>
+                            <button class="btn btn-primary" onclick="generateAndVisitPlanet()">Generate & Visit Planet</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="generatedTab" class="tab-content">
+                    <div id="generatedPlanetsList">
+                        <!-- Generated planets will be populated here -->
+                    </div>
+                    <div class="generated-buttons">
+                        <button class="btn btn-secondary" onclick="clearGeneratedPlanets()">Clear All Generated</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -36,6 +127,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="js/planetTypes.js"></script>
+    <script src="js/planetGenerator.js"></script>
     <script src="js/game.js"></script>
 </body>
 </html>
