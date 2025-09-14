@@ -29,6 +29,10 @@ const maxDustParticles = 50;
 let lastRoverMovement = 0;
 let lastLandingTime = 0;
 
+// Ambient atmospheric particle system variables
+let ambientParticles = [];
+const maxAmbientParticles = 30;
+
 
 // Multi-point contact detection
 const wheelOffsets = [
@@ -74,8 +78,14 @@ async function init() {
     // Add lighting
     addLighting();
     
+    // Apply atmospheric effects
+    applyAtmosphericFog();
+    
     // Create dust particle system
     createDustParticleSystem();
+    
+    // Create ambient atmospheric particle system
+    createAmbientParticleSystem();
     
     // Set up controls
     setupControls();
@@ -381,7 +391,126 @@ function updateDustParticles() {
     // Optional debug logging (removed for cleaner console)
 }
 
+function createAmbientParticleSystem() {
+    // Clear existing ambient particles
+    ambientParticles.forEach(particle => {
+        if (particle.mesh) {
+            scene.remove(particle.mesh);
+        }
+    });
+    ambientParticles = [];
+    
+    // Get atmosphere configuration
+    const atmosphereProps = planetTypeManager.getAtmosphereProperties();
+    
+    // Only create ambient particles if the planet has atmospheric particles
+    if (!atmosphereProps || !atmosphereProps.particles) {
+        console.log('No ambient particles for this planet (no atmosphere or particle config)');
+        return;
+    }
+    
+    const particleConfig = atmosphereProps.particles;
+    const particleColor = particleConfig.color;
+    const particleDensity = particleConfig.density;
+    const particleType = particleConfig.type;
+    
+    // Adjust particle count based on density
+    const particleCount = Math.floor(maxAmbientParticles * particleDensity);
+    
+    // Create geometry and material for ambient particles
+    const particleGeometry = new THREE.SphereGeometry(2.5, 8, 8); // Larger for better visibility
+    const particleMaterial = new THREE.MeshBasicMaterial({
+        color: particleColor,
+        transparent: true,
+        opacity: 0.6
+    });
+    
+    for (let i = 0; i < particleCount; i++) {
+        // Create individual mesh for each ambient particle
+        const particleMesh = new THREE.Mesh(particleGeometry, particleMaterial);
+        scene.add(particleMesh);
+        
+        // Position particles randomly around the entire planet surface for atmospheric effect
+        const angle = Math.random() * Math.PI * 2; // Full rotation
+        const elevation = (Math.random() - 0.5) * Math.PI; // Full sphere coverage
+        const distance = planetRadius + 5 + Math.random() * 20; // Floating above surface (5-25 units)
+        
+        const x = Math.cos(elevation) * Math.cos(angle) * distance;
+        const y = Math.sin(elevation) * distance; // This puts particles near north pole (positive Y)
+        const z = Math.cos(elevation) * Math.sin(angle) * distance;
+        
+        // Create particle data
+        const particle = {
+            mesh: particleMesh,
+            position: new THREE.Vector3(x, y, z),
+            velocity: new THREE.Vector3(
+                (Math.random() - 0.5) * 0.1,
+                (Math.random() - 0.5) * 0.05,
+                (Math.random() - 0.5) * 0.1
+            ),
+            baseOpacity: 0.4 + Math.random() * 0.4, // Vary opacity (0.4-0.8) for atmospheric depth
+            driftSpeed: 0.02 + Math.random() * 0.03, // Random drift speed
+            bobHeight: 2 + Math.random() * 3, // Vertical bobbing amplitude
+            bobOffset: Math.random() * Math.PI * 2, // Phase offset for bobbing
+            time: 0
+        };
+        
+        ambientParticles.push(particle);
+        particleMesh.position.copy(particle.position);
+    }
+    
+    console.log(`Created ${particleCount} ${particleType} ambient particles with color:`, particleColor.toString(16));
+}
 
+function updateAmbientParticles() {
+    const deltaTime = 0.016; // ~60fps
+    
+    for (let i = 0; i < ambientParticles.length; i++) {
+        const particle = ambientParticles[i];
+        particle.time += deltaTime;
+        
+        // Gentle horizontal drift
+        particle.position.add(particle.velocity);
+        
+        // Vertical bobbing motion
+        const bobOffset = Math.sin(particle.time * 2 + particle.bobOffset) * particle.bobHeight * deltaTime;
+        particle.position.y += bobOffset;
+        
+        // Keep particles within bounds (sphere around planet)
+        const distanceFromCenter = particle.position.length();
+        const minDistance = planetRadius + 8;
+        const maxDistance = planetRadius + 60;
+        
+        if (distanceFromCenter < minDistance) {
+            particle.position.normalize().multiplyScalar(minDistance);
+        } else if (distanceFromCenter > maxDistance) {
+            particle.position.normalize().multiplyScalar(maxDistance);
+        }
+        
+        // Gentle random velocity changes for organic movement
+        if (Math.random() < 0.01) { // 1% chance per frame to change direction slightly
+            particle.velocity.add(new THREE.Vector3(
+                (Math.random() - 0.5) * 0.01,
+                (Math.random() - 0.5) * 0.005,
+                (Math.random() - 0.5) * 0.01
+            ));
+            
+            // Clamp velocity to reasonable limits
+            const maxVel = 0.15;
+            if (particle.velocity.length() > maxVel) {
+                particle.velocity.normalize().multiplyScalar(maxVel);
+            }
+        }
+        
+        // Apply planet rotation to particle position
+        const worldPosition = particle.position.clone();
+        worldPosition.applyQuaternion(planetQuaternion);
+        particle.mesh.position.copy(worldPosition);
+        
+        // Keep particles at consistent opacity for better atmospheric visibility
+        particle.mesh.material.opacity = particle.baseOpacity;
+    }
+}
 
 function positionRoverOnPlanet() {
     // Apply quaternion rotation to planet first
@@ -532,6 +661,32 @@ function addLighting(planetType = null) {
     directionalLight.shadow.camera.top = 100;
     directionalLight.shadow.camera.bottom = -100;
     scene.add(directionalLight);
+}
+
+function applyAtmosphericFog(planetType = null) {
+    // Get atmosphere configuration
+    const atmosphereProps = planetTypeManager.getAtmosphereProperties(planetType);
+    
+    // Clear existing fog
+    scene.fog = null;
+    
+    // Apply fog if the planet has atmospheric settings
+    if (atmosphereProps && atmosphereProps.fog) {
+        const fogSettings = atmosphereProps.fog;
+        
+        // Use exponential fog for more realistic atmospheric depth
+        scene.fog = new THREE.FogExp2(
+            fogSettings.color,
+            fogSettings.density
+        );
+        
+        console.log('Applied atmospheric fog:', {
+            color: fogSettings.color.toString(16),
+            density: fogSettings.density
+        });
+    } else {
+        console.log('No atmospheric fog (clear atmosphere or no config)');
+    }
 }
 
 function setupControls() {
@@ -692,6 +847,7 @@ function animate() {
     handleRoverMovement();
     updateRoverPhysics(); // New physics update
     updateDustParticles(); // Update particle system
+    updateAmbientParticles(); // Update ambient atmospheric particles
     
     // Update camera to continuously follow rover
     if (window.updateCameraPosition) {
@@ -1001,8 +1157,14 @@ function switchPlanet(planetType) {
         // Recreate dust particle system
         createDustParticleSystem();
         
+        // Recreate ambient particle system
+        createAmbientParticleSystem();
+        
         // Update lighting for the new planet type
         addLighting();
+        
+        // Update atmospheric effects for the new planet type
+        applyAtmosphericFog();
         
         // Reset rover position on new planet
         positionRoverOnPlanet();

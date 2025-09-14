@@ -19,7 +19,7 @@
         "fogColor": "0x8B4513",
         "fogNear": 100,
         "fogFar": 500,
-        "fogDensity": 0.01,
+        "fogDensity": 0.003,
         "particles": {
           "type": "dust",
           "density": 0.5,
@@ -79,7 +79,7 @@
         "fogColor": "0xCCEEFF",
         "fogNear": 50,
         "fogFar": 300,
-        "fogDensity": 0.02,
+        "fogDensity": 0.005,
         "particles": {
           "type": "snow",
           "density": 0.3,
@@ -111,7 +111,7 @@
         "fogColor": "0x664400",
         "fogNear": 80,
         "fogFar": 400,
-        "fogDensity": 0.015,
+        "fogDensity": 0.004,
         "particles": {
           "type": "ash",
           "density": 0.7,
@@ -143,7 +143,7 @@
         "fogColor": "0xDDCC99",
         "fogNear": 120,
         "fogFar": 600,
-        "fogDensity": 0.005,
+        "fogDensity": 0.001,
         "particles": {
           "type": "sand",
           "density": 0.4,
