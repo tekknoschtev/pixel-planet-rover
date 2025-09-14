@@ -33,6 +33,10 @@ let lastLandingTime = 0;
 let ambientParticles = [];
 const maxAmbientParticles = 30;
 
+// Boulder field system variables
+let boulderField = [];
+const maxBoulders = 100;
+
 
 // Multi-point contact detection
 const wheelOffsets = [
@@ -72,6 +76,9 @@ async function init() {
     // Create planet using current planet type
     createPlanet();
     
+    // Create boulder field (fixed implementation)
+    createBoulderField();
+    
     // Create rover
     createRover();
     
@@ -81,10 +88,12 @@ async function init() {
     // Apply atmospheric effects
     applyAtmosphericFog();
     
-    // Create dust particle system
+    // Scene cleanup completed - shrub issue resolved
+    
+    // Create dust particle system (cleanup only - particles disabled)
     createDustParticleSystem();
     
-    // Create ambient atmospheric particle system
+    // Create ambient atmospheric particle system (cleanup only - particles disabled)
     createAmbientParticleSystem();
     
     // Set up controls
@@ -93,6 +102,554 @@ async function init() {
     // Start render loop
     animate();
     
+}
+
+// Advanced noise generation functions for terrain
+function generateLayeredNoise(x, y, z, scale, amplitude) {
+    // Convert to spherical coordinates for better planet-wide noise distribution
+    const radius = Math.sqrt(x*x + y*y + z*z);
+    const lat = Math.asin(y / radius);
+    const lon = Math.atan2(z, x);
+    
+    // Layer 1: Base terrain using improved Perlin-like noise
+    const baseNoise = improvedNoise(lon * scale * 4, lat * scale * 4, 0) * amplitude * 3.0;
+    
+    // Layer 2: Mid-frequency features (hills, valleys)
+    const midNoise = improvedNoise(lon * scale * 8, lat * scale * 8, 100) * amplitude * 2.0;
+    
+    // Layer 3: High-frequency detail (surface roughness)
+    const detailNoise = improvedNoise(lon * scale * 16, lat * scale * 16, 200) * amplitude * 1.0;
+    
+    // Layer 4: Large-scale continental features
+    const continentalNoise = improvedNoise(lon * scale * 1, lat * scale * 1, 300) * amplitude * 2.0;
+    
+    return baseNoise + midNoise + detailNoise + continentalNoise;
+}
+
+function improvedNoise(x, y, z) {
+    // Improved noise function with better distribution than simple sin/cos
+    const a = Math.sin(x * 1.2) * Math.cos(y * 0.8) * Math.sin(z * 1.5);
+    const b = Math.cos(x * 2.1) * Math.sin(y * 1.7) * Math.cos(z * 0.9);
+    const c = Math.sin(x * 0.5) * Math.sin(y * 2.3) * Math.cos(z * 1.8);
+    
+    // Combine with different weights for more natural variation
+    return (a * 0.5 + b * 0.3 + c * 0.2);
+}
+
+function ridgedNoise(x, y, z) {
+    // Ridged noise for mountain ranges and sharp features
+    const noise = improvedNoise(x, y, z);
+    return 1.0 - Math.abs(noise);
+}
+
+function turbulence(x, y, z, octaves = 4) {
+    // Multi-octave turbulence for complex terrain features
+    let value = 0;
+    let amplitude = 1;
+    let frequency = 1;
+    
+    for (let i = 0; i < octaves; i++) {
+        value += improvedNoise(x * frequency, y * frequency, z * frequency) * amplitude;
+        amplitude *= 0.5;
+        frequency *= 2.0;
+    }
+    
+    return value;
+}
+
+function generateMountains(x, y, z, planetRadius, terrainProps) {
+    // Convert to spherical coordinates
+    const radius = Math.sqrt(x*x + y*y + z*z);
+    const lat = Math.asin(y / radius);
+    const lon = Math.atan2(z, x);
+    
+    // Get mountain density from terrain properties, with fallback
+    const mountainDensity = terrainProps && terrainProps.mountainDensity !== undefined ? 
+        terrainProps.mountainDensity : 0.2;
+    
+    if (mountainDensity <= 0) return 0;
+    
+    let mountainEffect = 0;
+    
+    // Generate mountain ranges using ridged noise
+    const ridgeScale = 3;
+    const ridgeNoise = ridgedNoise(lon * ridgeScale, lat * ridgeScale, 0);
+    
+    // Only create mountains where ridge noise is high
+    if (ridgeNoise > 0.6) {
+        const mountainHeight = (ridgeNoise - 0.6) * 0.4 * mountainDensity;
+        
+        // Add jagged peaks using higher frequency noise
+        const peakNoise = turbulence(lon * ridgeScale * 4, lat * ridgeScale * 4, 0, 3);
+        const jaggedPeaks = peakNoise * mountainHeight * 0.3;
+        
+        mountainEffect += (mountainHeight * 120 + jaggedPeaks * 50); // EXTREME mountains
+    }
+    
+    // Generate isolated hills
+    const hillScale = 6;
+    const hillNoise = improvedNoise(lon * hillScale + 500, lat * hillScale + 500, 0);
+    
+    if (hillNoise > 0.5 && Math.abs(hillNoise) < 0.8) {
+        const hillHeight = (Math.abs(hillNoise) - 0.5) * 0.3 * mountainDensity;
+        
+        // Smooth hill profile
+        const hillProfile = Math.pow(hillHeight, 2) * 80; // EXTREME hills
+        mountainEffect += hillProfile;
+    }
+    
+    // Add rolling terrain variation
+    const rollingScale = 4;
+    const rollingNoise = improvedNoise(lon * rollingScale, lat * rollingScale, 700);
+    mountainEffect += rollingNoise * mountainDensity * 20;
+    
+    return mountainEffect;
+}
+
+function generateValleys(x, y, z, planetRadius, terrainProps) {
+    // Convert to spherical coordinates
+    const radius = Math.sqrt(x*x + y*y + z*z);
+    const lat = Math.asin(y / radius);
+    const lon = Math.atan2(z, x);
+    
+    // Get valley density from terrain properties, with fallback
+    const valleyDensity = terrainProps && terrainProps.valleyDensity !== undefined ? 
+        terrainProps.valleyDensity : 0.15;
+    
+    if (valleyDensity <= 0) return 0;
+    
+    let valleyEffect = 0;
+    
+    // Generate river valleys using inverted ridged noise
+    const riverScale = 2.5;
+    const riverNoise = ridgedNoise(lon * riverScale + 100, lat * riverScale + 100, 0);
+    
+    // Create valleys where ridge noise is low (invert the ridged effect)
+    const invertedRidge = 1.0 - riverNoise;
+    if (invertedRidge > 0.7) {
+        const valleyDepth = (invertedRidge - 0.7) * 0.3 * valleyDensity;
+        
+        // Add meandering effect to valleys
+        const meanderNoise = improvedNoise(lon * riverScale * 3, lat * riverScale * 3, 400);
+        const meandering = meanderNoise * valleyDepth * 0.2;
+        
+        valleyEffect -= (valleyDepth * 100 + meandering * 40); // EXTREME valleys
+    }
+    
+    // Generate canyon systems using layered noise
+    const canyonScale = 1.8;
+    const canyonNoise1 = improvedNoise(lon * canyonScale, lat * canyonScale, 600);
+    const canyonNoise2 = improvedNoise(lon * canyonScale * 2, lat * canyonScale * 2, 800);
+    
+    // Combine noises to create canyon network
+    const canyonPattern = canyonNoise1 * 0.7 + canyonNoise2 * 0.3;
+    
+    if (canyonPattern > 0.4 && canyonPattern < 0.6) {
+        const canyonDepth = (0.6 - Math.abs(canyonPattern - 0.5) * 2) * valleyDensity;
+        
+        // Add canyon wall steepness
+        const wallNoise = improvedNoise(lon * canyonScale * 8, lat * canyonScale * 8, 1000);
+        const wallEffect = wallNoise * canyonDepth * 0.1;
+        
+        valleyEffect -= (canyonDepth * 90 + wallEffect * 30); // EXTREME canyons
+    }
+    
+    // Add small gullies and erosion channels
+    const gullyScale = 8;
+    const gullyNoise = turbulence(lon * gullyScale, lat * gullyScale, 1200, 2);
+    
+    if (Math.abs(gullyNoise) > 0.6) {
+        const gullyDepth = (Math.abs(gullyNoise) - 0.6) * 0.4 * valleyDensity;
+        valleyEffect -= gullyDepth * 3; // Small erosion channels
+    }
+    
+    return valleyEffect;
+}
+
+function generateCliffs(x, y, z, planetRadius, terrainProps) {
+    // Convert to spherical coordinates
+    const radius = Math.sqrt(x*x + y*y + z*z);
+    const lat = Math.asin(y / radius);
+    const lon = Math.atan2(z, x);
+    
+    // Get cliff density from terrain properties, with fallback
+    const cliffDensity = terrainProps && terrainProps.cliffDensity !== undefined ? 
+        terrainProps.cliffDensity : 0.25;
+    
+    if (cliffDensity <= 0) return 0;
+    
+    let cliffEffect = 0;
+    
+    // Generate cliff lines using sharp transitions in noise
+    const cliffScale = 3.5;
+    const cliffNoise = improvedNoise(lon * cliffScale, lat * cliffScale, 1500);
+    
+    // Create sharp discontinuities for cliff faces
+    const cliffThreshold = 0.3;
+    if (Math.abs(cliffNoise) > cliffThreshold) {
+        // Determine cliff height and direction
+        const cliffHeight = (Math.abs(cliffNoise) - cliffThreshold) * cliffDensity;
+        const cliffDirection = cliffNoise > 0 ? 1 : -1;
+        
+        // Create step function for sharp cliff face
+        const stepFunction = cliffDirection > 0 ? 
+            Math.floor((cliffNoise + 1) * 4) / 4 : 
+            Math.ceil((cliffNoise - 1) * 4) / 4;
+        
+        cliffEffect += stepFunction * cliffHeight * 80; // EXTREME cliffs
+        
+        // Add cliff face texture using high frequency noise
+        const faceTexture = improvedNoise(lon * cliffScale * 8, lat * cliffScale * 8, 2000);
+        cliffEffect += faceTexture * cliffHeight * 2;
+    }
+    
+    // Generate terraced cliffs (like sedimentary layers)
+    const terraceScale = 2;
+    const terraceNoise = improvedNoise(lon * terraceScale, lat * terraceScale, 2500);
+    
+    if (Math.abs(terraceNoise) > 0.5) {
+        const terraceHeight = (Math.abs(terraceNoise) - 0.5) * 2.0 * cliffDensity;
+        
+        // Create stepped terraces
+        const stepHeight = 3;
+        const numSteps = Math.floor(terraceHeight * 4) + 1;
+        const steppedHeight = Math.floor(terraceHeight * stepHeight) / stepHeight * numSteps;
+        
+        cliffEffect += steppedHeight * 12; // More pronounced terracing
+    }
+    
+    // Generate fault lines (linear cliff features)
+    const faultScale = 1.5;
+    const fault1 = improvedNoise(lon * faultScale + 0.5, lat * faultScale, 3000);
+    const fault2 = improvedNoise(lon * faultScale, lat * faultScale + 0.5, 3500);
+    
+    // Create linear discontinuities
+    const faultPattern = Math.abs(fault1 * fault2);
+    if (faultPattern > 0.6) {
+        const faultHeight = (faultPattern - 0.6) * 2.5 * cliffDensity;
+        
+        // Sharp elevation change along fault line
+        const faultSign = (fault1 + fault2) > 0 ? 1 : -1;
+        cliffEffect += faultSign * faultHeight * 8;
+    }
+    
+    return cliffEffect;
+}
+
+function generateMesas(x, y, z, planetRadius, terrainProps) {
+    // Convert to spherical coordinates
+    const radius = Math.sqrt(x*x + y*y + z*z);
+    const lat = Math.asin(y / radius);
+    const lon = Math.atan2(z, x);
+    
+    // Get mesa density from terrain properties, with fallback
+    const mesaDensity = terrainProps && terrainProps.mesaDensity !== undefined ? 
+        terrainProps.mesaDensity : 0.2;
+    
+    if (mesaDensity <= 0) return 0;
+    
+    let mesaEffect = 0;
+    
+    // Generate large flat-topped mesas
+    const mesaScale = 1.8;
+    const mesaBase = improvedNoise(lon * mesaScale, lat * mesaScale, 4000);
+    
+    if (mesaBase > 0.4) {
+        // Create flat-topped mesa with steep sides
+        const mesaHeight = (mesaBase - 0.4) * 1.6 * mesaDensity;
+        
+        // Distance from mesa center (higher noise = closer to center)
+        const distanceFromCenter = 1.0 - mesaBase;
+        
+        // Create flat top with steep drop-off at edges
+        let mesaProfile;
+        if (distanceFromCenter < 0.3) {
+            // Flat top
+            mesaProfile = mesaHeight;
+        } else if (distanceFromCenter < 0.5) {
+            // Steep sides - sharp falloff
+            const sidePosition = (distanceFromCenter - 0.3) / 0.2; // 0 to 1
+            mesaProfile = mesaHeight * (1.0 - Math.pow(sidePosition, 0.3)); // Sharp dropoff
+        } else {
+            mesaProfile = 0;
+        }
+        
+        mesaEffect += mesaProfile * 100; // EXTREME mesas
+        
+        // Add mesa edge erosion details
+        if (distanceFromCenter >= 0.25 && distanceFromCenter <= 0.35) {
+            const erosion = improvedNoise(lon * mesaScale * 12, lat * mesaScale * 12, 4500);
+            mesaEffect += erosion * mesaHeight * 3; // Edge detail
+        }
+    }
+    
+    // Generate smaller buttes (mini-mesas)
+    const butteScale = 4;
+    const butteNoise = improvedNoise(lon * butteScale + 200, lat * butteScale + 200, 0);
+    
+    if (butteNoise > 0.6) {
+        const butteHeight = (butteNoise - 0.6) * 2.5 * mesaDensity;
+        const butteDistanceFromCenter = 1.0 - butteNoise;
+        
+        // Smaller flat-topped formations
+        let butteProfile;
+        if (butteDistanceFromCenter < 0.2) {
+            butteProfile = butteHeight;
+        } else if (butteDistanceFromCenter < 0.3) {
+            const sidePos = (butteDistanceFromCenter - 0.2) / 0.1;
+            butteProfile = butteHeight * (1.0 - Math.pow(sidePos, 0.4));
+        } else {
+            butteProfile = 0;
+        }
+        
+        mesaEffect += butteProfile * 70; // EXTREME buttes
+    }
+    
+    // Generate plateau regions (large flat areas)
+    const plateauScale = 0.8;
+    const plateauNoise = improvedNoise(lon * plateauScale, lat * plateauScale, 5000);
+    
+    if (plateauNoise > 0.3 && plateauNoise < 0.7) {
+        const plateauHeight = (0.7 - Math.abs(plateauNoise - 0.5) * 2) * mesaDensity;
+        
+        // Large, gently undulating flat areas
+        const plateauVariation = improvedNoise(lon * plateauScale * 3, lat * plateauScale * 3, 5500);
+        const flatness = plateauHeight * 8 + plateauVariation * plateauHeight * 1.5;
+        
+        mesaEffect += flatness;
+    }
+    
+    return mesaEffect;
+}
+
+function generateCraters(x, y, z, planetRadius, terrainProps) {
+    // Convert to spherical coordinates
+    const radius = Math.sqrt(x*x + y*y + z*z);
+    const lat = Math.asin(y / radius);
+    const lon = Math.atan2(z, x);
+    
+    // Get crater density from terrain properties, with fallback
+    const craterDensity = terrainProps && terrainProps.craterDensity !== undefined ? 
+        terrainProps.craterDensity : 0.3;
+    
+    if (craterDensity <= 0) return 0;
+    
+    let craterEffect = 0;
+    
+    // Generate multiple crater sizes
+    const craterSizes = [
+        { scale: 2, depth: -60, density: craterDensity * 0.3 },    // EXTREME large craters
+        { scale: 4, depth: -35, density: craterDensity * 0.5 },    // EXTREME medium craters  
+        { scale: 8, depth: -18, density: craterDensity * 0.7 }     // EXTREME small craters
+    ];
+    
+    craterSizes.forEach(crater => {
+        // Create crater centers using noise as a pseudo-random field
+        const centerNoise = improvedNoise(lon * crater.scale + 1000, lat * crater.scale + 2000, 0);
+        
+        if (centerNoise > (1.0 - crater.density)) {
+            // Calculate distance from crater center
+            const craterLat = lat + (improvedNoise(lon * crater.scale + 3000, lat * crater.scale + 4000, 0) * 0.2);
+            const craterLon = lon + (improvedNoise(lon * crater.scale + 5000, lat * crater.scale + 6000, 0) * 0.2);
+            
+            // Calculate angular distance on sphere
+            const deltaLat = lat - craterLat;
+            const deltaLon = lon - craterLon;
+            const distance = Math.sqrt(deltaLat * deltaLat + deltaLon * deltaLon);
+            
+            // Create crater profile (bowl shape with raised rim)
+            const craterRadius = (0.15 + Math.abs(centerNoise) * 0.1) / crater.scale;
+            
+            if (distance < craterRadius) {
+                const normalizedDist = distance / craterRadius;
+                
+                // Crater bowl with raised rim
+                let craterProfile;
+                if (normalizedDist < 0.8) {
+                    // Main crater depression
+                    craterProfile = Math.pow(1 - normalizedDist / 0.8, 2) * crater.depth;
+                } else {
+                    // Raised rim
+                    const rimFactor = (normalizedDist - 0.8) / 0.2;
+                    craterProfile = crater.depth * 0.1 * (1 - rimFactor) + crater.depth * 0.3 * Math.sin(rimFactor * Math.PI);
+                }
+                
+                craterEffect += craterProfile * (1 - normalizedDist * 0.5); // Fade towards edges
+            }
+        }
+    });
+    
+    return craterEffect;
+}
+
+function createBoulderField() {
+    // Clear existing boulders
+    boulderField.forEach(boulder => {
+        if (boulder.mesh) {
+            scene.remove(boulder.mesh);
+        }
+    });
+    boulderField = [];
+    
+    // Get terrain configuration for boulder density
+    const terrainProps = planetTypeManager.getTerrainProperties();
+    const boulderDensity = terrainProps && terrainProps.boulderDensity !== undefined ? 
+        terrainProps.boulderDensity : 0.3;
+    
+    if (boulderDensity <= 0) {
+        console.log('No boulders for this planet (density = 0)');
+        return;
+    }
+    
+    const numBoulders = Math.floor(maxBoulders * boulderDensity);
+    
+    // Get planet-specific boulder color
+    const materialProps = planetTypeManager.getMaterialProperties();
+    let boulderColor = 0x8B7355; // Default rocky color
+    
+    if (materialProps && materialProps.boulderColor) {
+        boulderColor = materialProps.boulderColor;
+    } else if (materialProps && materialProps.color) {
+        // Darken the planet color for boulders
+        const planetColor = materialProps.color;
+        const r = Math.max(0, ((planetColor >> 16) & 0xFF) - 40);
+        const g = Math.max(0, ((planetColor >> 8) & 0xFF) - 40);  
+        const b = Math.max(0, (planetColor & 0xFF) - 40);
+        boulderColor = (r << 16) | (g << 8) | b;
+    }
+    
+    for (let i = 0; i < numBoulders; i++) {
+        // Generate random position on sphere
+        const lat = (Math.random() - 0.5) * Math.PI; // -π/2 to π/2
+        const lon = Math.random() * Math.PI * 2;     // 0 to 2π
+        
+        // Convert to Cartesian coordinates
+        const x = Math.cos(lat) * Math.cos(lon);
+        const y = Math.sin(lat);
+        const z = Math.cos(lat) * Math.sin(lon);
+        
+        // Get surface height at this position
+        const surfaceHeight = getSurfaceHeightAtPosition(
+            x * planetRadius, 
+            z * planetRadius
+        );
+        
+        // Create boulder mesh
+        const boulderSize = 0.8 + Math.random() * 2.5; // Random size 0.8-3.3
+        const boulderGeometry = createBoulderGeometry(boulderSize);
+        const boulderMaterial = new THREE.MeshLambertMaterial({ 
+            color: boulderColor,
+            flatShading: true
+        });
+        
+        const boulderMesh = new THREE.Mesh(boulderGeometry, boulderMaterial);
+        
+        // Position boulder on surface
+        const surfaceNormal = new THREE.Vector3(x, y, z).normalize();
+        const position = surfaceNormal.multiplyScalar(surfaceHeight + boulderSize * 0.3);
+        boulderMesh.position.copy(position);
+        
+        // Random rotation
+        boulderMesh.rotation.set(
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2
+        );
+        
+        // Enable shadows
+        boulderMesh.castShadow = true;
+        boulderMesh.receiveShadow = true;
+        
+        planet.add(boulderMesh); // Add to planet so they rotate with it
+        
+        boulderField.push({
+            mesh: boulderMesh,
+            position: position.clone(),
+            size: boulderSize
+        });
+    }
+    
+    console.log(`Created ${numBoulders} boulders with color:`, boulderColor.toString(16));
+}
+
+function createBoulderGeometry(size) {
+    // Create boulder with multiple connected sections
+    const numSections = 2 + Math.floor(Math.random() * 3); // 2-4 connected sections
+    const geometries = [];
+    
+    for (let i = 0; i < numSections; i++) {
+        // Create each section with varying sizes
+        const sectionSize = size * (0.4 + Math.random() * 0.4); // 40-80% of main size
+        const sectionGeometry = new THREE.IcosahedronGeometry(sectionSize, 2);
+        
+        // Position sections to overlap/connect
+        const angle = (i / numSections) * Math.PI * 2 + Math.random() * 0.5;
+        const distance = size * (0.3 + Math.random() * 0.3); // Overlap for connection
+        
+        const offsetX = Math.cos(angle) * distance;
+        const offsetY = (Math.random() - 0.5) * size * 0.4; // Vertical variation
+        const offsetZ = Math.sin(angle) * distance;
+        
+        // Apply position offset to all vertices
+        const vertices = sectionGeometry.attributes.position.array;
+        for (let j = 0; j < vertices.length; j += 3) {
+            vertices[j] += offsetX;     // X
+            vertices[j + 1] += offsetY; // Y  
+            vertices[j + 2] += offsetZ; // Z
+            
+            // Add slight deformation to each section
+            const deformation = 0.8 + Math.random() * 0.15; // 0.8 to 0.95 scale factor
+            const noise = improvedNoise(vertices[j] * 2, vertices[j + 1] * 2, vertices[j + 2] * 2) * 0.05;
+            const scale = deformation + noise;
+            
+            vertices[j] *= scale;
+            vertices[j + 1] *= scale;
+            vertices[j + 2] *= scale;
+        }
+        
+        sectionGeometry.attributes.position.needsUpdate = true;
+        geometries.push(sectionGeometry);
+    }
+    
+    // Merge all sections into one geometry properly
+    const mergedGeometry = new THREE.BufferGeometry();
+    const mergedVertices = [];
+    const mergedIndices = [];
+    let vertexOffset = 0;
+    
+    geometries.forEach(geo => {
+        const vertices = geo.attributes.position.array;
+        
+        // Add vertices
+        for (let i = 0; i < vertices.length; i++) {
+            mergedVertices.push(vertices[i]);
+        }
+        
+        // Handle indices - generate them if they don't exist
+        let indices;
+        if (geo.index) {
+            indices = geo.index.array;
+        } else {
+            // Generate indices for non-indexed geometry
+            indices = [];
+            for (let i = 0; i < vertices.length / 3; i++) {
+                indices.push(i);
+            }
+        }
+        
+        // Add indices with offset
+        for (let i = 0; i < indices.length; i++) {
+            mergedIndices.push(indices[i] + vertexOffset);
+        }
+        
+        vertexOffset += vertices.length / 3;
+    });
+    
+    mergedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(mergedVertices, 3));
+    mergedGeometry.setIndex(mergedIndices);
+    mergedGeometry.computeVertexNormals();
+    
+    return mergedGeometry;
 }
 
 function createPlanet(planetType = null) {
@@ -119,11 +676,11 @@ function createPlanet(planetType = null) {
     const subdivisions = Math.round(baseSubdivisions * Math.sqrt(planetRadius / baseRadius));
     const geometry = new THREE.IcosahedronGeometry(planetRadius, subdivisions);
     
-    // Add structured terrain variation using noise function
+    // Add structured terrain variation using multiple noise algorithms
     const vertices = geometry.attributes.position.array;
     const uniqueVertices = new Map();
     
-    // First pass: identify unique vertices and apply consistent noise
+    // First pass: identify unique vertices and apply layered noise
     for (let i = 0; i < vertices.length; i += 3) {
         const x = vertices[i];
         const y = vertices[i + 1];
@@ -134,9 +691,30 @@ function createPlanet(planetType = null) {
             const vertex = new THREE.Vector3(x, y, z);
             const distance = vertex.length();
             
-            // Use position-based noise for consistency with configurable parameters
-            const noise = Math.sin(x * noiseScale) * Math.cos(y * noiseScale) * Math.sin(z * noiseScale) * heightVariation;
-            const newDistance = distance + noise;
+            // Apply multiple noise layers for realistic terrain
+            let baseNoise = generateLayeredNoise(x, y, z, noiseScale, heightVariation);
+            
+            // Add mountain and hill formations
+            const mountainNoise = generateMountains(x, y, z, planetRadius, terrainProps);
+            baseNoise += mountainNoise;
+            
+            // Add valleys and canyons
+            const valleyNoise = generateValleys(x, y, z, planetRadius, terrainProps);
+            baseNoise += valleyNoise;
+            
+            // Add cliff faces and steep terrain
+            const cliffNoise = generateCliffs(x, y, z, planetRadius, terrainProps);
+            baseNoise += cliffNoise;
+            
+            // Add mesa and plateau formations
+            const mesaNoise = generateMesas(x, y, z, planetRadius, terrainProps);
+            baseNoise += mesaNoise;
+            
+            // Add crater features
+            const craterNoise = generateCraters(x, y, z, planetRadius, terrainProps);
+            baseNoise += craterNoise;
+            
+            const newDistance = distance + baseNoise;
             
             vertex.normalize().multiplyScalar(newDistance);
             uniqueVertices.set(key, vertex);
@@ -238,46 +816,72 @@ function createRover() {
     scene.add(rover);
 }
 
-function createDustParticleSystem() {
-    // Create dust particles using individual small spheres instead of Points
-    dustParticles = [];
+function cleanupScene() {
+    // Debug: Log all objects in the scene and remove suspicious ones
+    console.log('=== SCENE CLEANUP DEBUG ===');
+    console.log('Total scene children:', scene.children.length);
     
-    // Get planet-specific dust color
-    const atmosphereProps = planetTypeManager.getAtmosphereProperties();
-    let dustColor = 0xCC9966; // Default dust color
+    const objectsToRemove = [];
     
-    if (atmosphereProps && atmosphereProps.particles && atmosphereProps.particles.color) {
-        dustColor = atmosphereProps.particles.color;
-    }
-    
-    // Create geometry and material for all particles
-    const particleGeometry = new THREE.SphereGeometry(0.5, 4, 4); // Small low-poly sphere
-    const particleMaterial = new THREE.MeshBasicMaterial({
-        color: dustColor, // Planet-specific dust color
-        transparent: true,
-        opacity: 0.8
+    scene.children.forEach((child, index) => {
+        console.log(`Child ${index}:`, child.type, child.constructor.name);
+        
+        // Remove any remaining particle meshes or suspicious objects
+        if (child.type === 'Mesh' && child.geometry && 
+            (child.geometry.type === 'SphereGeometry') && 
+            child !== planet && child !== rover) {
+            
+            // Check if it's a small sphere (likely a particle)
+            const sphereGeo = child.geometry;
+            if (sphereGeo.parameters && sphereGeo.parameters.radius < 3) {
+                console.log('Removing suspicious small sphere:', child);
+                objectsToRemove.push(child);
+            }
+        }
     });
     
+    // Remove suspicious objects
+    objectsToRemove.forEach(obj => scene.remove(obj));
+    
+    console.log(`Removed ${objectsToRemove.length} suspicious objects`);
+    console.log('=== END SCENE CLEANUP ===');
+}
+
+function createDustParticleSystem() {
+    // Clear any existing dust particles
+    dustParticles.forEach(particle => {
+        if (particle.mesh) {
+            scene.remove(particle.mesh);
+        }
+    });
+    dustParticles = [];
+    
+    // Create particle pool
     for (let i = 0; i < maxDustParticles; i++) {
-        // Create individual mesh for each particle
+        const particleGeometry = new THREE.SphereGeometry(1.0, 6, 6); // Larger base size
+        const particleMaterial = new THREE.MeshBasicMaterial({
+            color: 0xD2B48C, // Sandy brown color like original
+            transparent: true,
+            opacity: 0.7
+        });
+        
         const particleMesh = new THREE.Mesh(particleGeometry, particleMaterial);
-        particleMesh.position.set(0, -1000, 0); // Start off-screen
-        particleMesh.visible = false; // Hide initially
+        particleMesh.visible = false;
         scene.add(particleMesh);
         
         dustParticles.push({
             mesh: particleMesh,
-            position: new THREE.Vector3(0, -1000, 0), // Position in planet-local coordinates
-            velocity: new THREE.Vector3(0, 0, 0), // Velocity in planet-local coordinates
+            position: new THREE.Vector3(),
+            velocity: new THREE.Vector3(),
             life: 0,
-            maxLife: 0,
-            size: 1,
-            alpha: 0,
-            planetRotationAtSpawn: new THREE.Quaternion() // Store planet rotation when particle was spawned
+            maxLife: 1.0,
+            size: 0.3 + Math.random() * 0.5, // Variable size 0.3-0.8
+            alpha: 1.0,
+            planetRotationAtSpawn: new THREE.Quaternion()
         });
     }
     
-    console.log('Created', maxDustParticles, 'dust particle meshes with color:', dustColor.toString(16));
+    console.log('Created dust particle system with', maxDustParticles, 'particles');
 }
 
 
@@ -310,9 +914,9 @@ function spawnDustParticles(position, velocity, count = 5) {
         localVelocity.applyQuaternion(inverseQuaternion);
         
         particle.velocity.copy(localVelocity);
-        particle.life = 1.5; // Shorter life for more realistic dust
-        particle.maxLife = 1.5; 
-        particle.size = 1 + Math.random() * 1.5; // Random size variation
+        particle.life = 0.8; // Much shorter life for more realistic dust
+        particle.maxLife = 0.8; 
+        particle.size = 0.3 + Math.random() * 0.5; // Much smaller size variation
         particle.alpha = 0.8;
         particle.planetRotationAtSpawn.copy(planetQuaternion); // Store current planet rotation
     }
@@ -378,8 +982,8 @@ function updateDustParticles() {
             particle.mesh.visible = true;
             particle.mesh.material.opacity = fadeAlpha * 0.8;
             
-            // Scale particle as it fades
-            const scale = 0.5 + (1 - fadeAlpha) * 0.5;
+            // Scale particle as it fades - original larger scale
+            const scale = particle.size * (0.5 + fadeAlpha * 0.8);
             particle.mesh.scale.setScalar(scale);
         } else {
             // Hide dead particles
@@ -392,7 +996,7 @@ function updateDustParticles() {
 }
 
 function createAmbientParticleSystem() {
-    // Clear existing ambient particles
+    // Clear any existing ambient particles
     ambientParticles.forEach(particle => {
         if (particle.mesh) {
             scene.remove(particle.mesh);
@@ -400,47 +1004,30 @@ function createAmbientParticleSystem() {
     });
     ambientParticles = [];
     
-    // Get atmosphere configuration
-    const atmosphereProps = planetTypeManager.getAtmosphereProperties();
-    
-    // Only create ambient particles if the planet has atmospheric particles
-    if (!atmosphereProps || !atmosphereProps.particles) {
-        console.log('No ambient particles for this planet (no atmosphere or particle config)');
-        return;
-    }
-    
-    const particleConfig = atmosphereProps.particles;
-    const particleColor = particleConfig.color;
-    const particleDensity = particleConfig.density;
-    const particleType = particleConfig.type;
-    
-    // Adjust particle count based on density
-    const particleCount = Math.floor(maxAmbientParticles * particleDensity);
-    
-    // Create geometry and material for ambient particles
-    const particleGeometry = new THREE.SphereGeometry(2.5, 8, 8); // Larger for better visibility
-    const particleMaterial = new THREE.MeshBasicMaterial({
-        color: particleColor,
-        transparent: true,
-        opacity: 0.6
-    });
-    
-    for (let i = 0; i < particleCount; i++) {
-        // Create individual mesh for each ambient particle
+    // Create ambient atmospheric particles
+    for (let i = 0; i < maxAmbientParticles; i++) {
+        const particleGeometry = new THREE.SphereGeometry(0.8, 6, 6); // Much larger
+        const particleMaterial = new THREE.MeshBasicMaterial({
+            color: 0xE6E6FA, // Light lavender like original atmospheric particles
+            transparent: true,
+            opacity: 0.15
+        });
+        
         const particleMesh = new THREE.Mesh(particleGeometry, particleMaterial);
+        
+        // Random position around planet
+        const distance = planetRadius + 20 + Math.random() * 40;
+        const lat = (Math.random() - 0.5) * Math.PI;
+        const lon = Math.random() * Math.PI * 2;
+        
+        const x = distance * Math.cos(lat) * Math.cos(lon);
+        const y = distance * Math.sin(lat);
+        const z = distance * Math.cos(lat) * Math.sin(lon);
+        
+        particleMesh.position.set(x, y, z);
         scene.add(particleMesh);
         
-        // Position particles randomly around the entire planet surface for atmospheric effect
-        const angle = Math.random() * Math.PI * 2; // Full rotation
-        const elevation = (Math.random() - 0.5) * Math.PI; // Full sphere coverage
-        const distance = planetRadius + 5 + Math.random() * 20; // Floating above surface (5-25 units)
-        
-        const x = Math.cos(elevation) * Math.cos(angle) * distance;
-        const y = Math.sin(elevation) * distance; // This puts particles near north pole (positive Y)
-        const z = Math.cos(elevation) * Math.sin(angle) * distance;
-        
-        // Create particle data
-        const particle = {
+        ambientParticles.push({
             mesh: particleMesh,
             position: new THREE.Vector3(x, y, z),
             velocity: new THREE.Vector3(
@@ -448,18 +1035,14 @@ function createAmbientParticleSystem() {
                 (Math.random() - 0.5) * 0.05,
                 (Math.random() - 0.5) * 0.1
             ),
-            baseOpacity: 0.4 + Math.random() * 0.4, // Vary opacity (0.4-0.8) for atmospheric depth
-            driftSpeed: 0.02 + Math.random() * 0.03, // Random drift speed
-            bobHeight: 2 + Math.random() * 3, // Vertical bobbing amplitude
-            bobOffset: Math.random() * Math.PI * 2, // Phase offset for bobbing
-            time: 0
-        };
-        
-        ambientParticles.push(particle);
-        particleMesh.position.copy(particle.position);
+            time: Math.random() * Math.PI * 2,
+            bobOffset: Math.random() * Math.PI * 2,
+            bobHeight: 0.5 + Math.random() * 1.0,
+            baseOpacity: 0.1 + Math.random() * 0.15 // Lower base opacity for subtlety
+        });
     }
     
-    console.log(`Created ${particleCount} ${particleType} ambient particles with color:`, particleColor.toString(16));
+    console.log('Created ambient particle system with', maxAmbientParticles, 'particles');
 }
 
 function updateAmbientParticles() {
@@ -580,9 +1163,9 @@ function calculateTerrainRotation(surfaceNormal) {
 }
 
 function getSurfaceHeightAtPosition(localX, localZ) {
-    // Simple raycast to find surface height at rover position
+    // Raycast to find surface height - start much higher for extreme terrain
     const raycaster = new THREE.Raycaster();
-    const origin = new THREE.Vector3(localX, planetRadius + 50, localZ);
+    const origin = new THREE.Vector3(localX, planetRadius + 150, localZ); // Much higher start point
     const direction = new THREE.Vector3(0, -1, 0);
     
     raycaster.set(origin, direction);
@@ -799,8 +1382,8 @@ function handleRoverMovement() {
     if (roverPosition.lon < -180) roverPosition.lon += 360;
     
     if (moved) {
-        // Only spawn dust particles when actually moving forward/backward and grounded
-        if (forwardMovement && isGrounded && Date.now() - lastRoverMovement > 150) { // Throttle dust spawning
+        // Spawn dust particles when rover moves on ground
+        if (forwardMovement && isGrounded && Date.now() - lastRoverMovement > 150) {
             // Spawn particles from rear wheel positions for proper trail effect
             const rearLeftWheel = new THREE.Vector3(-2.5, 0, -2); // Local wheel position
             const rearRightWheel = new THREE.Vector3(2.5, 0, -2); // Local wheel position
@@ -893,9 +1476,9 @@ function updateRoverPhysics() {
         const groundDistance = roverPhysicsPosition.y - contactResults.lowestContactHeight;
         
         if (groundDistance <= 0.2) { // Close enough to ground to be considered "touching"
-            // Detect landing for dust particles
+            // Landing dust particles
             const landingImpact = Math.abs(roverVelocity.y);
-            if (!wasGrounded && isGrounded && landingImpact > 0.3) { // Higher threshold to prevent small landing puffs
+            if (!wasGrounded && isGrounded && landingImpact > 0.3) {
                 // Rover just landed with significant impact - reduced particle count
                 spawnDustParticles(
                     roverPhysicsPosition.clone(),
@@ -1151,13 +1734,16 @@ function switchPlanet(planetType) {
         // Create new planet with the selected type
         createPlanet();
         
+        // Recreate boulder field
+        createBoulderField();
+        
         // Recreate rover with updated materials
         createRover();
         
-        // Recreate dust particle system
+        // Recreate dust particle system (cleanup only - particles disabled)
         createDustParticleSystem();
         
-        // Recreate ambient particle system
+        // Recreate ambient particle system (cleanup only - particles disabled)  
         createAmbientParticleSystem();
         
         // Update lighting for the new planet type

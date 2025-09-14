@@ -18,8 +18,8 @@ Transform the current single Mars-like planet into a diverse planetary explorati
   - [x] Add planet switching functionality during gameplay
 - [x] Create planet type presets: Mars, Moon, Ice, Volcanic, Desert
 - [x] Implement different lighting schemes per planet type
-- [ ] Add basic atmospheric effects (fog, particle systems)
-- [ ] Test planet switching functionality
+- [x] Add basic atmospheric effects (fog, particle systems)
+- [x] Test planet switching functionality
 
 **Deliverable:** Player can choose between 5 different planet types with distinct visual styles
 
@@ -29,15 +29,15 @@ Transform the current single Mars-like planet into a diverse planetary explorati
 **Goal:** Make planets more interesting with varied terrain features
 
 ### Tasks:
-- [ ] Expand noise-based terrain generation with different algorithms
-- [ ] Add large crater generation system
-- [ ] Implement mountain/hill formation
-- [ ] Create valley and canyon generation
-- [ ] Add boulder field placement system
-- [ ] Implement cliff face detection and generation
-- [ ] Create mesa/plateau formations
-- [ ] Add terrain feature density controls per planet type
-- [ ] Test rover navigation on complex terrain
+- [x] Expand noise-based terrain generation with different algorithms
+- [x] Add large crater generation system
+- [x] Implement mountain/hill formation
+- [x] Create valley and canyon generation
+- [x] Add boulder field placement system
+- [x] Implement cliff face detection and generation
+- [x] Create mesa/plateau formations
+- [x] Add terrain feature density controls per planet type
+- [x] Test rover navigation on complex terrain
 
 **Deliverable:** Planets have varied, interesting terrain with natural obstacles and features
 

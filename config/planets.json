@@ -29,7 +29,13 @@
       "terrain": {
         "noiseScale": 0.1,
         "heightVariation": 3,
-        "roughness": 0.7
+        "roughness": 0.7,
+        "mountainDensity": 0.3,
+        "valleyDensity": 0.25,
+        "craterDensity": 0.4,
+        "cliffDensity": 0.2,
+        "mesaDensity": 0.15,
+        "boulderDensity": 0.5
       }
     },
     "moon": {
@@ -57,7 +63,13 @@
       "terrain": {
         "noiseScale": 0.05,
         "heightVariation": 8,
-        "roughness": 0.9
+        "roughness": 0.9,
+        "mountainDensity": 0.1,
+        "valleyDensity": 0.05,
+        "craterDensity": 0.8,
+        "cliffDensity": 0.15,
+        "mesaDensity": 0.05,
+        "boulderDensity": 0.3
       }
     },
     "ice": {
@@ -89,7 +101,13 @@
       "terrain": {
         "noiseScale": 0.08,
         "heightVariation": 5,
-        "roughness": 0.5
+        "roughness": 0.5,
+        "mountainDensity": 0.4,
+        "valleyDensity": 0.35,
+        "craterDensity": 0.1,
+        "cliffDensity": 0.45,
+        "mesaDensity": 0.25,
+        "boulderDensity": 0.2
       }
     },
     "volcanic": {
@@ -121,7 +139,13 @@
       "terrain": {
         "noiseScale": 0.12,
         "heightVariation": 6,
-        "roughness": 0.8
+        "roughness": 0.8,
+        "mountainDensity": 0.6,
+        "valleyDensity": 0.4,
+        "craterDensity": 0.3,
+        "cliffDensity": 0.5,
+        "mesaDensity": 0.2,
+        "boulderDensity": 0.7
       }
     },
     "desert": {
@@ -153,7 +177,13 @@
       "terrain": {
         "noiseScale": 0.06,
         "heightVariation": 4,
-        "roughness": 0.3
+        "roughness": 0.3,
+        "mountainDensity": 0.15,
+        "valleyDensity": 0.6,
+        "craterDensity": 0.1,
+        "cliffDensity": 0.1,
+        "mesaDensity": 0.4,
+        "boulderDensity": 0.1
       }
     }
   },
