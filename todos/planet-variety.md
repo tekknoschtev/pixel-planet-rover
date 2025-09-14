@@ -54,7 +54,7 @@ Transform the current single Mars-like planet into a diverse planetary explorati
 - [x] Implement terrain roughness controls
 - [x] Add feature density parameters (craters, rocks, etc.)
 - [x] Create planet size variation system
-- [ ] Add biome mixing capabilities
+- [x] Add biome mixing capabilities
 - [ ] Implement difficulty scaling system
 - [x] Add planet preview/thumbnail system
 
@@ -66,7 +66,8 @@ Transform the current single Mars-like planet into a diverse planetary explorati
 **Goal:** Give players reasons to explore and navigate the terrain
 
 ### Tasks:
-- [ ] Add resource deposit system (glowing crystals, minerals)
+- [x] Add resource deposit system (glowing crystals, minerals)
+- [ ] Add planet-type/biome-specific object system
 - [ ] Implement points of interest spawning
 - [ ] Create simple ancient structure generation
 - [ ] Add discovery notification system

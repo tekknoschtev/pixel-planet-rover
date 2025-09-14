@@ -372,7 +372,8 @@ class PlanetGenerator {
                 cliffDensity: Number(terrain.cliffDensity.toFixed(2)),
                 mesaDensity: Number(terrain.mesaDensity.toFixed(2)),
                 boulderDensity: Number(terrain.boulderDensity.toFixed(2))
-            }
+            },
+            objects: this.generateObjectDensities(baseBiome, rng)
         };
 
         // Cache the generated planet
@@ -491,6 +492,50 @@ class PlanetGenerator {
         }
         
         return blendedRanges;
+    }
+
+    // Generate object densities for a planet based on biome
+    generateObjectDensities(baseBiome, rng) {
+        // Base densities per biome type
+        const biomeObjectDensities = {
+            mars: {
+                boulder: rng.range(0.4, 0.6),
+                crystal: rng.range(0.2, 0.4), 
+                metal: rng.range(0.15, 0.3),
+                marker: rng.range(0.05, 0.15),
+                debris: rng.range(0.1, 0.2)
+            },
+            moon: {
+                boulder: rng.range(0.2, 0.4),
+                crystal: rng.range(0.3, 0.5),
+                metal: rng.range(0.05, 0.15),
+                marker: rng.range(0.15, 0.25),
+                debris: rng.range(0.2, 0.3)
+            },
+            ice: {
+                boulder: rng.range(0.1, 0.3),
+                crystal: rng.range(0.5, 0.7),
+                metal: rng.range(0.2, 0.4),
+                marker: rng.range(0.1, 0.2),
+                debris: rng.range(0.05, 0.15)
+            },
+            volcanic: {
+                boulder: rng.range(0.6, 0.8),
+                crystal: rng.range(0.1, 0.3),
+                metal: rng.range(0.4, 0.6),
+                marker: rng.range(0.05, 0.15),
+                debris: rng.range(0.2, 0.4)
+            },
+            desert: {
+                boulder: rng.range(0.05, 0.2),
+                crystal: rng.range(0.05, 0.2),
+                metal: rng.range(0.1, 0.3),
+                marker: rng.range(0.3, 0.5),
+                debris: rng.range(0.15, 0.25)
+            }
+        };
+        
+        return biomeObjectDensities[baseBiome] || biomeObjectDensities.mars;
     }
 
     // Create biome mix from ratios

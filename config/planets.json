@@ -36,6 +36,13 @@
         "cliffDensity": 0.2,
         "mesaDensity": 0.15,
         "boulderDensity": 0.5
+      },
+      "objects": {
+        "boulder": 0.5,
+        "crystal": 0.3,
+        "metal": 0.2,
+        "marker": 0.1,
+        "debris": 0.15
       }
     },
     "moon": {
@@ -70,6 +77,13 @@
         "cliffDensity": 0.15,
         "mesaDensity": 0.05,
         "boulderDensity": 0.3
+      },
+      "objects": {
+        "boulder": 0.3,
+        "crystal": 0.4,
+        "metal": 0.1,
+        "marker": 0.2,
+        "debris": 0.25
       }
     },
     "ice": {
@@ -108,6 +122,13 @@
         "cliffDensity": 0.45,
         "mesaDensity": 0.25,
         "boulderDensity": 0.2
+      },
+      "objects": {
+        "boulder": 0.2,
+        "crystal": 0.6,
+        "metal": 0.3,
+        "marker": 0.15,
+        "debris": 0.1
       }
     },
     "volcanic": {
@@ -146,6 +167,13 @@
         "cliffDensity": 0.5,
         "mesaDensity": 0.2,
         "boulderDensity": 0.7
+      },
+      "objects": {
+        "boulder": 0.7,
+        "crystal": 0.2,
+        "metal": 0.5,
+        "marker": 0.1,
+        "debris": 0.3
       }
     },
     "desert": {
@@ -184,6 +212,13 @@
         "cliffDensity": 0.1,
         "mesaDensity": 0.4,
         "boulderDensity": 0.1
+      },
+      "objects": {
+        "boulder": 0.1,
+        "crystal": 0.1,
+        "metal": 0.2,
+        "marker": 0.4,
+        "debris": 0.2
       }
     }
   },

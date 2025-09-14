@@ -33,9 +33,9 @@ let lastLandingTime = 0;
 let ambientParticles = [];
 const maxAmbientParticles = 30;
 
-// Boulder field system variables
-let boulderField = [];
-const maxBoulders = 100;
+// Object collision detection variables  
+let lastObjectCollisionCheck = 0;
+const objectCollisionInterval = 100; // Check every 100ms
 
 
 // Multi-point contact detection
@@ -76,8 +76,8 @@ async function init() {
     // Create planet using current planet type
     createPlanet();
     
-    // Create boulder field (fixed implementation)
-    createBoulderField();
+    // Create planet objects using new object system
+    createPlanetObjects();
     
     // Create rover
     createRover();
@@ -482,174 +482,87 @@ function generateCraters(x, y, z, planetRadius, terrainProps) {
     return craterEffect;
 }
 
-function createBoulderField() {
-    // Clear existing boulders
-    boulderField.forEach(boulder => {
-        if (boulder.mesh) {
-            scene.remove(boulder.mesh);
-        }
-    });
-    boulderField = [];
-    
-    // Get terrain configuration for boulder density
-    const terrainProps = planetTypeManager.getTerrainProperties();
-    const boulderDensity = terrainProps && terrainProps.boulderDensity !== undefined ? 
-        terrainProps.boulderDensity : 0.3;
-    
-    if (boulderDensity <= 0) {
-        console.log('No boulders for this planet (density = 0)');
+function createPlanetObjects() {
+    // Get current planet configuration
+    const currentConfig = planetTypeManager.getCurrentPlanetConfig();
+    if (!currentConfig) {
+        console.warn('No planet configuration available for object generation');
         return;
     }
     
-    const numBoulders = Math.floor(maxBoulders * boulderDensity);
+    // Create seeded RNG for consistent object placement
+    const seed = currentConfig.seed || Date.now() % 1000000;
+    const rng = planetObjectManager.createSeededRNG(seed);
     
-    // Get planet-specific boulder color
-    const materialProps = planetTypeManager.getMaterialProperties();
-    let boulderColor = 0x8B7355; // Default rocky color
-    
-    if (materialProps && materialProps.boulderColor) {
-        boulderColor = materialProps.boulderColor;
-    } else if (materialProps && materialProps.color) {
-        // Darken the planet color for boulders
-        const planetColor = materialProps.color;
-        const r = Math.max(0, ((planetColor >> 16) & 0xFF) - 40);
-        const g = Math.max(0, ((planetColor >> 8) & 0xFF) - 40);  
-        const b = Math.max(0, (planetColor & 0xFF) - 40);
-        boulderColor = (r << 16) | (g << 8) | b;
-    }
-    
-    for (let i = 0; i < numBoulders; i++) {
-        // Generate random position on sphere
-        const lat = (Math.random() - 0.5) * Math.PI; // -π/2 to π/2
-        const lon = Math.random() * Math.PI * 2;     // 0 to 2π
-        
-        // Convert to Cartesian coordinates
-        const x = Math.cos(lat) * Math.cos(lon);
-        const y = Math.sin(lat);
-        const z = Math.cos(lat) * Math.sin(lon);
-        
-        // Get surface height at this position
-        const surfaceHeight = getSurfaceHeightAtPosition(
-            x * planetRadius, 
-            z * planetRadius
-        );
-        
-        // Create boulder mesh
-        const boulderSize = 0.8 + Math.random() * 2.5; // Random size 0.8-3.3
-        const boulderGeometry = createBoulderGeometry(boulderSize);
-        const boulderMaterial = new THREE.MeshLambertMaterial({ 
-            color: boulderColor,
-            flatShading: true
-        });
-        
-        const boulderMesh = new THREE.Mesh(boulderGeometry, boulderMaterial);
-        
-        // Position boulder on surface
-        const surfaceNormal = new THREE.Vector3(x, y, z).normalize();
-        const position = surfaceNormal.multiplyScalar(surfaceHeight + boulderSize * 0.3);
-        boulderMesh.position.copy(position);
-        
-        // Random rotation
-        boulderMesh.rotation.set(
-            Math.random() * Math.PI * 2,
-            Math.random() * Math.PI * 2,
-            Math.random() * Math.PI * 2
-        );
-        
-        // Enable shadows
-        boulderMesh.castShadow = true;
-        boulderMesh.receiveShadow = true;
-        
-        planet.add(boulderMesh); // Add to planet so they rotate with it
-        
-        boulderField.push({
-            mesh: boulderMesh,
-            position: position.clone(),
-            size: boulderSize
-        });
-    }
-    
-    console.log(`Created ${numBoulders} boulders with color:`, boulderColor.toString(16));
+    // Generate objects using the new system
+    planetObjectManager.generateObjects(currentConfig, rng, planet);
 }
 
-function createBoulderGeometry(size) {
-    // Create boulder with multiple connected sections
-    const numSections = 2 + Math.floor(Math.random() * 3); // 2-4 connected sections
-    const geometries = [];
+// Old boulder geometry function removed - now handled by planetObjects.js
+
+function checkObjectCollisions() {
+    // Throttle collision detection to avoid excessive computation
+    const now = Date.now();
+    if (now - lastObjectCollisionCheck < objectCollisionInterval) {
+        return;
+    }
+    lastObjectCollisionCheck = now;
     
-    for (let i = 0; i < numSections; i++) {
-        // Create each section with varying sizes
-        const sectionSize = size * (0.4 + Math.random() * 0.4); // 40-80% of main size
-        const sectionGeometry = new THREE.IcosahedronGeometry(sectionSize, 2);
-        
-        // Position sections to overlap/connect
-        const angle = (i / numSections) * Math.PI * 2 + Math.random() * 0.5;
-        const distance = size * (0.3 + Math.random() * 0.3); // Overlap for connection
-        
-        const offsetX = Math.cos(angle) * distance;
-        const offsetY = (Math.random() - 0.5) * size * 0.4; // Vertical variation
-        const offsetZ = Math.sin(angle) * distance;
-        
-        // Apply position offset to all vertices
-        const vertices = sectionGeometry.attributes.position.array;
-        for (let j = 0; j < vertices.length; j += 3) {
-            vertices[j] += offsetX;     // X
-            vertices[j + 1] += offsetY; // Y  
-            vertices[j + 2] += offsetZ; // Z
-            
-            // Add slight deformation to each section
-            const deformation = 0.8 + Math.random() * 0.15; // 0.8 to 0.95 scale factor
-            const noise = improvedNoise(vertices[j] * 2, vertices[j + 1] * 2, vertices[j + 2] * 2) * 0.05;
-            const scale = deformation + noise;
-            
-            vertices[j] *= scale;
-            vertices[j + 1] *= scale;
-            vertices[j + 2] *= scale;
+    // Get rover position in world coordinates
+    const roverWorldPos = rover.position.clone();
+    
+    // Check for collisions with objects
+    const collisions = planetObjectManager.checkCollisions(roverWorldPos);
+    
+    if (collisions.length > 0) {
+        // Handle collision response
+        for (const collision of collisions) {
+            handleObjectCollision(collision);
         }
-        
-        sectionGeometry.attributes.position.needsUpdate = true;
-        geometries.push(sectionGeometry);
     }
     
-    // Merge all sections into one geometry properly
-    const mergedGeometry = new THREE.BufferGeometry();
-    const mergedVertices = [];
-    const mergedIndices = [];
-    let vertexOffset = 0;
+    // Check for objects in discovery range
+    const nearbyObjects = planetObjectManager.getObjectsInRange(roverWorldPos, 8);
     
-    geometries.forEach(geo => {
-        const vertices = geo.attributes.position.array;
-        
-        // Add vertices
-        for (let i = 0; i < vertices.length; i++) {
-            mergedVertices.push(vertices[i]);
-        }
-        
-        // Handle indices - generate them if they don't exist
-        let indices;
-        if (geo.index) {
-            indices = geo.index.array;
-        } else {
-            // Generate indices for non-indexed geometry
-            indices = [];
-            for (let i = 0; i < vertices.length / 3; i++) {
-                indices.push(i);
+    for (const obj of nearbyObjects) {
+        if (!obj.discovered && obj.canCollect) {
+            // Auto-discover collectible objects when close
+            const objectWorldPos = new THREE.Vector3();
+            obj.mesh.getWorldPosition(objectWorldPos);
+            const distance = roverWorldPos.distanceTo(objectWorldPos);
+            if (distance < 4) {
+                planetObjectManager.discoverObject(obj.id);
+                console.log(`🎯 Discovered ${obj.definition.name}! ${obj.definition.description}`);
             }
         }
+    }
+}
+
+function handleObjectCollision(collision) {
+    // Simple collision response - prevent rover from passing through objects
+    const objectPos = collision.worldPosition || collision.object.position;
+    const direction = rover.position.clone().sub(objectPos).normalize();
+    const pushDistance = collision.object.collisionRadius + planetObjectManager.collisionRadius - collision.distance + 0.5;
+    
+    if (pushDistance > 0) {
+        // Push rover away from object
+        const pushVector = direction.multiplyScalar(pushDistance);
+        rover.position.add(pushVector);
+        roverPhysicsPosition.add(pushVector);
         
-        // Add indices with offset
-        for (let i = 0; i < indices.length; i++) {
-            mergedIndices.push(indices[i] + vertexOffset);
+        // Add more noticeable visual feedback
+        if (roverAngularVelocity) {
+            roverAngularVelocity.x += (Math.random() - 0.5) * 0.05;
+            roverAngularVelocity.z += (Math.random() - 0.5) * 0.05;
         }
         
-        vertexOffset += vertices.length / 3;
-    });
-    
-    mergedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(mergedVertices, 3));
-    mergedGeometry.setIndex(mergedIndices);
-    mergedGeometry.computeVertexNormals();
-    
-    return mergedGeometry;
+        // Add velocity dampening for impact feel
+        if (roverVelocity) {
+            roverVelocity.multiplyScalar(0.7); // Slow down on impact
+        }
+        
+        console.log(`💥 Collision with ${collision.object.definition.name}!`);
+    }
 }
 
 function createPlanet(planetType = null) {
@@ -1554,6 +1467,7 @@ function animate() {
     updateRoverPhysics(); // New physics update
     updateDustParticles(); // Update particle system
     updateAmbientParticles(); // Update ambient atmospheric particles
+    checkObjectCollisions(); // Check for collisions with objects
     
     // Update camera to continuously follow rover
     if (window.updateCameraPosition) {
@@ -2008,7 +1922,7 @@ function switchPlanet(planetType) {
         createPlanet(planetType);
         
         // Recreate boulder field
-        createBoulderField();
+        createPlanetObjects();
         
         // Recreate rover with updated materials
         createRover();
