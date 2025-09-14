@@ -75,10 +75,16 @@ async function init() {
 }
 
 function createPlanet(planetType = null) {
-    // Get planet configuration
+    // Get planet configuration  
     const materialProps = planetTypeManager.getMaterialProperties(planetType);
     const terrainProps = planetTypeManager.getTerrainProperties(planetType);
+    const configuredRadius = planetTypeManager.getPlanetRadius(planetType);
 
+    // Update global planetRadius with configured value
+    planetRadius = configuredRadius;
+    
+    // Reset rover physics position to start above the new planet surface
+    roverPhysicsPosition.set(0, planetRadius + 20, 0);
     
     // Use fallback values if configuration isn't loaded
     const planetColor = materialProps ? materialProps.color : 0x8B4513;
@@ -86,8 +92,11 @@ function createPlanet(planetType = null) {
     const noiseScale = terrainProps ? terrainProps.noiseScale : 0.1;
     const heightVariation = terrainProps ? terrainProps.heightVariation : 3;
     
-    // Create higher quality planet sphere
-    const geometry = new THREE.IcosahedronGeometry(planetRadius, 12);
+    // Create higher quality planet sphere with subdivision level scaled to radius
+    const baseRadius = 80; // Reference radius for subdivision calibration
+    const baseSubdivisions = 12; // Base subdivision level for radius 80
+    const subdivisions = Math.round(baseSubdivisions * Math.sqrt(planetRadius / baseRadius));
+    const geometry = new THREE.IcosahedronGeometry(planetRadius, subdivisions);
     
     // Add structured terrain variation using noise function
     const vertices = geometry.attributes.position.array;
@@ -425,7 +434,9 @@ function setupControls() {
 }
 
 function handleRoverMovement() {
-    const moveSpeed = 0.02;
+    // Scale movement speed inversely with planet radius for consistent surface speed
+    const baseRadius = 80; // Reference radius for speed calibration
+    const moveSpeed = 0.02 * (baseRadius / planetRadius);
     const turnSpeed = 0.03;
     let moved = false;
     

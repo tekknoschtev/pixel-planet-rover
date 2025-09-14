@@ -1,8 +1,9 @@
 {
   "planetTypes": {
     "mars": {
-      "name": "Mars",
+      "name": "Mars", 
       "description": "Red planet with rocky terrain and dust storms",
+      "radius": 80,
       "material": {
         "color": "0x8B4513",
         "flatShading": true
@@ -33,7 +34,8 @@
     },
     "moon": {
       "name": "Moon",
-      "description": "Barren, cratered surface with stark lighting",
+      "description": "Barren, cratered surface with stark lighting", 
+      "radius": 60,
       "material": {
         "color": "0x999999",
         "flatShading": true
@@ -61,8 +63,9 @@
     "ice": {
       "name": "Ice World",
       "description": "Frozen planet with crystalline formations",
+      "radius": 200,
       "material": {
-        "color": "0xAADDFF",
+        "color": "0xAADDFF", 
         "flatShading": true
       },
       "lighting": {
@@ -90,8 +93,9 @@
       }
     },
     "volcanic": {
-      "name": "Volcanic",
+      "name": "Volcanic", 
       "description": "Molten landscape with lava flows and ash",
+      "radius": 150,
       "material": {
         "color": "0x331100",
         "flatShading": true
@@ -123,6 +127,7 @@
     "desert": {
       "name": "Desert",
       "description": "Sandy dunes with shifting terrain",
+      "radius": 400,
       "material": {
         "color": "0xDDCC99",
         "flatShading": true

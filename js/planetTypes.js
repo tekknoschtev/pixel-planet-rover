@@ -113,6 +113,13 @@ class PlanetTypeManager {
         return this.currentPlanetType;
     }
 
+    // Get planet radius
+    getPlanetRadius(planetType = null) {
+        const config = planetType ? this.getPlanetConfig(planetType) : this.getCurrentPlanetConfig();
+        if (!config) return 80; // Default fallback radius
+        return config.radius || 80; // Use configured radius or fallback to 80
+    }
+
     // Convert hex string to THREE.js color
     parseColor(colorString) {
         if (!colorString) return null;
