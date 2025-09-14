@@ -1146,8 +1146,9 @@ function positionRoverOnPlanet() {
     // Update position display with wheel contact info
     const contactResults = calculateGroundContact();
     const groundStatus = isGrounded ? `Grounded (${contactResults.groundedCount}/4 wheels)` : "Airborne";
-    document.getElementById('position').textContent = 
-        `Lat: ${roverPosition.lat.toFixed(1)}, Lon: ${roverPosition.lon.toFixed(1)}, Heading: ${(roverHeading * 180 / Math.PI).toFixed(1)}° | ${groundStatus}`;
+    // Position display removed for cleaner UI
+    // document.getElementById('position').textContent = 
+    //     `Lat: ${roverPosition.lat.toFixed(1)}, Lon: ${roverPosition.lon.toFixed(1)}, Heading: ${(roverHeading * 180 / Math.PI).toFixed(1)}° | ${groundStatus}`;
 }
 
 function lerp(start, end, factor) {
@@ -1506,6 +1507,23 @@ function setupPixelArtRendering() {
     const quadGeometry = new THREE.PlaneGeometry(2, 2);
     const quad = new THREE.Mesh(quadGeometry, pixelMaterial);
     pixelScene.add(quad);
+}
+
+function drawPixelatedCircle(ctx, centerX, centerY, radius, color) {
+    ctx.fillStyle = color;
+    ctx.imageSmoothingEnabled = false;
+    
+    // Draw circle using pixels - classic Bresenham-style approach
+    const pixelSize = 2; // Match game's chunky pixel aesthetic
+    
+    for (let x = -radius; x <= radius; x += pixelSize) {
+        for (let y = -radius; y <= radius; y += pixelSize) {
+            const distance = Math.sqrt(x * x + y * y);
+            if (distance <= radius) {
+                ctx.fillRect(centerX + x, centerY + y, pixelSize, pixelSize);
+            }
+        }
+    }
 }
 
 function updatePixelArtSize() {
@@ -2055,10 +2073,15 @@ function initializePlanetModal() {
             const previewColor = config ? config.material.color.replace('0x', '#') : '#8B4513';
             
             planetOption.innerHTML = `
-                <div class="planet-preview" style="background-color: ${previewColor}"></div>
+                <canvas class="planet-preview" width="32" height="32"></canvas>
                 <div class="planet-name">${planet.name}</div>
                 <div class="planet-description">${planet.description}</div>
             `;
+            
+            // Draw pixelated circle on canvas
+            const canvas = planetOption.querySelector('.planet-preview');
+            const ctx = canvas.getContext('2d');
+            drawPixelatedCircle(ctx, 16, 16, 12, previewColor);
             
             // Mark current planet
             if (planet.id === planetTypeManager.getCurrentPlanetType()) {
@@ -2110,11 +2133,16 @@ function initializePlanetModal() {
             const previewColor = planetConfig ? planetConfig.material.color.replace('0x', '#') : '#8B4513';
             
             planetOption.innerHTML = `
-                <div class="planet-preview" style="background-color: ${previewColor}"></div>
+                <canvas class="planet-preview" width="32" height="32"></canvas>
                 <div class="planet-name">${planet.name}</div>
                 <div class="planet-description">Based on ${planet.baseBiome} • Seed: ${planet.seed}</div>
                 <button class="planet-export-btn" onclick="event.stopPropagation(); exportPlanet('${planet.id}')" title="Export Planet">📤</button>
             `;
+            
+            // Draw pixelated circle on canvas
+            const canvas = planetOption.querySelector('.planet-preview');
+            const ctx = canvas.getContext('2d');
+            drawPixelatedCircle(ctx, 16, 16, 12, previewColor);
             
             // Mark current planet
             if (planet.id === planetTypeManager.getCurrentPlanetType()) {

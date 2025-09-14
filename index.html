@@ -4,21 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pixel Rover Planet</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <div id="container"></div>
     
     <div id="ui">
-        <h3>Pixel Rover Planet</h3>
-        <p>Position: <span id="position">0, 0, 0</span></p>
-        <button onclick="showPlanetModal()" style="background: #0066cc; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-family: monospace;">Change Planet</button>
+        <button onclick="showPlanetModal()" class="pixel-button">Change Planet</button>
     </div>
     
-    <div id="controls">
-        <p>WASD: Move Rover | Mouse: Rotate View</p>
-    </div>
-
     <!-- Toast Notifications -->
     <div id="toastContainer"></div>
 
