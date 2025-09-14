@@ -12,6 +12,12 @@ body {
     height: 100vh;
 }
 
+#container canvas {
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
 #ui {
     position: absolute;
     top: 10px;

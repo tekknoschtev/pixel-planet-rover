@@ -1,5 +1,7 @@
 // Game variables
 let scene, camera, renderer, planet, rover;
+let pixelRenderTarget, pixelCamera, pixelScene, pixelMaterial;
+let pixelSize = 4; // Configurable pixel size
 let planetRadius = 80;
 let roverPosition = { lat: 0, lon: 0 };
 let roverHeading = Math.PI / 2; // rover's facing direction in radians (start facing north)
@@ -66,12 +68,15 @@ async function init() {
 //    camera.position.set(0, 15, 25);
     camera.lookAt(0, 0, 0);
     
-    // Create renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Create renderer with pixel-art settings
+    renderer = new THREE.WebGLRenderer({ antialias: false });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.getElementById('container').appendChild(renderer.domElement);
+    
+    // Setup pixel-art rendering
+    setupPixelArtRendering();
     
     // Create planet using current planet type
     createPlanet();
@@ -1312,6 +1317,17 @@ function setupControls() {
     // Keyboard controls
     document.addEventListener('keydown', (event) => {
         keys[event.code] = true;
+        
+        // Pixel size controls
+        if (event.code === 'Minus' || event.code === 'NumpadSubtract') {
+            pixelSize = Math.max(1, pixelSize - 1);
+            updatePixelArtSize();
+            console.log('Pixel size:', pixelSize);
+        } else if (event.code === 'Equal' || event.code === 'NumpadAdd') {
+            pixelSize = Math.min(8, pixelSize + 1);
+            updatePixelArtSize();
+            console.log('Pixel size:', pixelSize);
+        }
     });
     
     document.addEventListener('keyup', (event) => {
@@ -1370,6 +1386,13 @@ function setupControls() {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+        
+        // Update pixel render target size
+        if (pixelRenderTarget) {
+            const width = Math.floor(window.innerWidth / pixelSize);
+            const height = Math.floor(window.innerHeight / pixelSize);
+            pixelRenderTarget.setSize(width, height);
+        }
     });
 }
 
@@ -1460,6 +1483,49 @@ function handleRoverMovement() {
     }
 }
 
+function setupPixelArtRendering() {
+    // Create low-resolution render target for pixel art effect
+    const width = Math.floor(window.innerWidth / pixelSize);
+    const height = Math.floor(window.innerHeight / pixelSize);
+    
+    pixelRenderTarget = new THREE.WebGLRenderTarget(width, height, {
+        minFilter: THREE.NearestFilter,
+        magFilter: THREE.NearestFilter,
+        format: THREE.RGBAFormat
+    });
+    
+    // Create a full-screen quad to display the pixelated result
+    pixelScene = new THREE.Scene();
+    pixelCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    
+    // Create material for the full-screen quad
+    pixelMaterial = new THREE.MeshBasicMaterial({
+        map: pixelRenderTarget.texture
+    });
+    
+    const quadGeometry = new THREE.PlaneGeometry(2, 2);
+    const quad = new THREE.Mesh(quadGeometry, pixelMaterial);
+    pixelScene.add(quad);
+}
+
+function updatePixelArtSize() {
+    if (pixelRenderTarget) {
+        const width = Math.floor(window.innerWidth / pixelSize);
+        const height = Math.floor(window.innerHeight / pixelSize);
+        pixelRenderTarget.setSize(width, height);
+    }
+}
+
+function renderPixelArt() {
+    // First, render the scene to the low-resolution render target
+    renderer.setRenderTarget(pixelRenderTarget);
+    renderer.render(scene, camera);
+    
+    // Then render the pixelated result to the main canvas
+    renderer.setRenderTarget(null);
+    renderer.render(pixelScene, pixelCamera);
+}
+
 function animate() {
     requestAnimationFrame(animate);
     
@@ -1476,7 +1542,8 @@ function animate() {
     
     // No auto-rotation - planet only moves with rover movement
     
-    renderer.render(scene, camera);
+    // Render with pixel art effect
+    renderPixelArt();
 }
 
 function updateRoverPhysics() {
