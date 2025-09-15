@@ -1339,9 +1339,10 @@ function setupControls() {
     let mouseDown = false;
     let mouseX = 0, mouseY = 0;
     let cameraAngle = { theta: 0, phi: 1.1};
+    let cameraDistance = 60; // Make distance configurable
     
     function updateCameraPosition() {
-        const distance = 60;
+        const distance = cameraDistance;
         const x = distance * Math.sin(cameraAngle.phi) * Math.cos(cameraAngle.theta);
         const y = distance * Math.cos(cameraAngle.phi) + planetRadius;
         const z = distance * Math.sin(cameraAngle.phi) * Math.sin(cameraAngle.theta);
@@ -1376,6 +1377,21 @@ function setupControls() {
         mouseY = event.clientY;
     });
     
+    // Mouse wheel zoom control
+    document.addEventListener('wheel', (event) => {
+        event.preventDefault(); // Prevent page scrolling
+        
+        const zoomSensitivity = 0.1;
+        const minDistance = 20;
+        const maxDistance = 150;
+        
+        // deltaY > 0 means scrolling down (zoom out), deltaY < 0 means scrolling up (zoom in)
+        cameraDistance += event.deltaY * zoomSensitivity;
+        cameraDistance = Math.max(minDistance, Math.min(maxDistance, cameraDistance));
+        
+        updateCameraPosition();
+    });
+    
     // Initialize camera position
     updateCameraPosition();
     
@@ -1400,7 +1416,7 @@ function setupControls() {
 function handleRoverMovement() {
     // Scale movement speed inversely with planet radius for consistent surface speed
     const baseRadius = 80; // Reference radius for speed calibration
-    const moveSpeed = 0.02 * (baseRadius / planetRadius);
+    const moveSpeed = 0.01 * (baseRadius / planetRadius);
     const turnSpeed = 0.03;
     let moved = false;
     let forwardMovement = false; // Track if rover is actually moving forward/backward
