@@ -68,6 +68,12 @@ class PlanetTypeManager {
             console.warn('Planet configurations not loaded yet');
             return null;
         }
+        
+        // Check if it's a generated planet
+        if (this.currentPlanetType && this.currentPlanetType.startsWith('generated_')) {
+            return this.generatedPlanets.get(this.currentPlanetType);
+        }
+        
         return this.planetConfigs[this.currentPlanetType];
     }
 
