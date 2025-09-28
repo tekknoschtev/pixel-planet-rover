@@ -55,7 +55,6 @@ Transform the current single Mars-like planet into a diverse planetary explorati
 - [x] Add feature density parameters (craters, rocks, etc.)
 - [x] Create planet size variation system
 - [x] Add biome mixing capabilities
-- [ ] Implement difficulty scaling system
 - [x] Add planet preview/thumbnail system
 
 **Deliverable:** Players can generate unlimited unique planets with customizable parameters

@@ -25,6 +25,9 @@ class GameEngine {
         // Animation frame tracking
         this.animationId = null;
         this.lastUpdateTime = 0;
+
+        // Mobile input handler
+        this.mobileInputHandler = null;
     }
 
     async initialize() {
@@ -344,6 +347,18 @@ class GameEngine {
     }
 
     setupControls() {
+        // Initialize mobile input handler if on mobile device (or for testing)
+        if (typeof MobileInputHandler !== 'undefined' && MobileInputHandler.isMobileDevice()) {
+            this.mobileInputHandler = new MobileInputHandler();
+            console.log('Mobile device detected - touch controls enabled');
+        } else {
+            console.log('Desktop device detected - keyboard/mouse controls enabled');
+            // Temporarily create joystick for testing on desktop
+            // Remove this after confirming visuals work
+            this.mobileInputHandler = new MobileInputHandler();
+            console.log('DEBUG: Creating joystick on desktop for testing');
+        }
+
         // Keyboard controls
         document.addEventListener('keydown', (event) => {
             this.keys[event.code] = true;
@@ -369,8 +384,17 @@ class GameEngine {
     }
 
     handleRoverMovement() {
+        // Merge keyboard and touch inputs
+        let inputKeys = { ...this.keys };
+
+        // Add touch input if mobile handler is active
+        if (this.mobileInputHandler) {
+            const touchKeys = this.mobileInputHandler.getTouchAsKeyboardInput();
+            inputKeys = { ...inputKeys, ...touchKeys };
+        }
+
         const movementResult = this.roverPhysics.handleMovement(
-            this.keys,
+            inputKeys,
             this.roverHeading,
             this.planetQuaternion,
             this.planetRadius
