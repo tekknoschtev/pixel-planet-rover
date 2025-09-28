@@ -347,16 +347,12 @@ class GameEngine {
     }
 
     setupControls() {
-        // Initialize mobile input handler if on mobile device (or for testing)
+        // Initialize mobile input handler if on mobile device
         if (typeof MobileInputHandler !== 'undefined' && MobileInputHandler.isMobileDevice()) {
             this.mobileInputHandler = new MobileInputHandler();
             console.log('Mobile device detected - touch controls enabled');
         } else {
             console.log('Desktop device detected - keyboard/mouse controls enabled');
-            // Temporarily create joystick for testing on desktop
-            // Remove this after confirming visuals work
-            this.mobileInputHandler = new MobileInputHandler();
-            console.log('DEBUG: Creating joystick on desktop for testing');
         }
 
         // Keyboard controls

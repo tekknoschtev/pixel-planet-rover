@@ -179,13 +179,6 @@ class MobileInputHandler {
         document.body.appendChild(this.visualFeedback.cameraTouchIndicator);
 
         this.updateJoystickVisuals();
-
-        // Debug: Log joystick creation
-        console.log('Mobile joystick created at:', {
-            centerX: this.joystick.centerX,
-            centerY: this.joystick.centerY,
-            size: this.joystick.size
-        });
     }
 
     updateJoystickVisuals() {
