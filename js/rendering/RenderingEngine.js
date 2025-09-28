@@ -109,47 +109,50 @@ class RenderingEngine {
     }
 
     setupControls() {
-        // Mouse controls for camera - simpler rotation around rover
-        document.addEventListener('mousedown', (event) => {
-            this.mouseDown = true;
-            this.mouseX = event.clientX;
-            this.mouseY = event.clientY;
-        });
+        // Only setup mouse controls if not on mobile device
+        if (typeof MobileInputHandler === 'undefined' || !MobileInputHandler.isMobileDevice()) {
+            // Mouse controls for camera - simpler rotation around rover
+            document.addEventListener('mousedown', (event) => {
+                this.mouseDown = true;
+                this.mouseX = event.clientX;
+                this.mouseY = event.clientY;
+            });
 
-        document.addEventListener('mouseup', () => {
-            this.mouseDown = false;
-        });
+            document.addEventListener('mouseup', () => {
+                this.mouseDown = false;
+            });
 
-        document.addEventListener('mousemove', (event) => {
-            if (!this.mouseDown) return;
+            document.addEventListener('mousemove', (event) => {
+                if (!this.mouseDown) return;
 
-            const deltaX = event.clientX - this.mouseX;
-            const deltaY = event.clientY - this.mouseY;
+                const deltaX = event.clientX - this.mouseX;
+                const deltaY = event.clientY - this.mouseY;
 
-            this.cameraAngle.theta -= deltaX * 0.01;
-            this.cameraAngle.phi += deltaY * 0.01;
-            this.cameraAngle.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.cameraAngle.phi));
+                this.cameraAngle.theta -= deltaX * 0.01;
+                this.cameraAngle.phi += deltaY * 0.01;
+                this.cameraAngle.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.cameraAngle.phi));
 
-            this.updateCameraPosition();
+                this.updateCameraPosition();
 
-            this.mouseX = event.clientX;
-            this.mouseY = event.clientY;
-        });
+                this.mouseX = event.clientX;
+                this.mouseY = event.clientY;
+            });
 
-        // Mouse wheel zoom control
-        document.addEventListener('wheel', (event) => {
-            event.preventDefault(); // Prevent page scrolling
+            // Mouse wheel zoom control
+            document.addEventListener('wheel', (event) => {
+                event.preventDefault(); // Prevent page scrolling
 
-            const zoomSensitivity = 0.1;
-            const minDistance = 20;
-            const maxDistance = 150;
+                const zoomSensitivity = 0.1;
+                const minDistance = 20;
+                const maxDistance = 150;
 
-            // deltaY > 0 means scrolling down (zoom out), deltaY < 0 means scrolling up (zoom in)
-            this.cameraDistance += event.deltaY * zoomSensitivity;
-            this.cameraDistance = Math.max(minDistance, Math.min(maxDistance, this.cameraDistance));
+                // deltaY > 0 means scrolling down (zoom out), deltaY < 0 means scrolling up (zoom in)
+                this.cameraDistance += event.deltaY * zoomSensitivity;
+                this.cameraDistance = Math.max(minDistance, Math.min(maxDistance, this.cameraDistance));
 
-            this.updateCameraPosition();
-        });
+                this.updateCameraPosition();
+            });
+        }
 
         // Initialize camera position
         this.updateCameraPosition();
