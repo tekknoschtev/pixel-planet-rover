@@ -25,9 +25,11 @@ class ParticleSystem {
     }
 
     createDustParticleSystem() {
-        // Clear any existing dust particles
+        // Clear and dispose any existing dust particles
         this.dustParticles.forEach(particle => {
             if (particle.mesh) {
+                if (particle.mesh.geometry) particle.mesh.geometry.dispose();
+                if (particle.mesh.material) particle.mesh.material.dispose();
                 this.scene.remove(particle.mesh);
             }
         });
@@ -172,9 +174,11 @@ class ParticleSystem {
     }
 
     createAmbientParticleSystem() {
-        // Clear any existing ambient particles
+        // Clear and dispose any existing ambient particles
         this.ambientParticles.forEach(particle => {
             if (particle.mesh) {
+                if (particle.mesh.geometry) particle.mesh.geometry.dispose();
+                if (particle.mesh.material) particle.mesh.material.dispose();
                 this.scene.remove(particle.mesh);
             }
         });
@@ -331,9 +335,11 @@ class ParticleSystem {
 
     // Cleanup method
     cleanupParticles() {
-        // Remove all particles from scene
+        // Remove and dispose all particles from scene
         [...this.dustParticles, ...this.ambientParticles].forEach(particle => {
             if (particle.mesh) {
+                if (particle.mesh.geometry) particle.mesh.geometry.dispose();
+                if (particle.mesh.material) particle.mesh.material.dispose();
                 this.scene.remove(particle.mesh);
             }
         });

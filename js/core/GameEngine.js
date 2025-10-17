@@ -28,6 +28,9 @@ class GameEngine {
 
         // Mobile input handler
         this.mobileInputHandler = null;
+
+        // UI state
+        this.inputEnabled = true; // Disable input when UI menus are open
     }
 
     async initialize() {
@@ -135,7 +138,7 @@ class GameEngine {
         const uniqueVertices = new Map();
         const vertexBiomes = new Map(); // Store biome data per vertex for coloring
 
-        // First pass: identify unique vertices and apply layered noise (NO biome sampling yet)
+        // First pass: Generate terrain with biome-specific properties
         for (let i = 0; i < vertices.length; i += 3) {
             const x = vertices[i];
             const y = vertices[i + 1];
@@ -146,28 +149,29 @@ class GameEngine {
                 const vertex = new THREE.Vector3(x, y, z);
                 const distance = vertex.length();
 
-                // Apply standard terrain generation without biome influence for now
-                let baseNoise = this.terrainGenerator.generateLayeredNoise(x, y, z, noiseScale, heightVariation);
+                // Use terrain properties from planet config (already calculated and finalized)
+                // For biome mixing, these are pre-blended values. For single biomes, they're pre-selected
+                let baseNoise = this.terrainGenerator.generateLayeredNoise(x, y, z, noiseScale, terrainProps.heightVariation || heightVariation);
 
                 // Add mountain and hill formations
                 const mountainNoise = this.terrainGenerator.generateMountains(x, y, z, this.planetRadius, terrainProps);
-                baseNoise += mountainNoise;
+                baseNoise += mountainNoise * (terrainProps.mountainDensity || 0.3);
 
                 // Add valleys and canyons
                 const valleyNoise = this.terrainGenerator.generateValleys(x, y, z, this.planetRadius, terrainProps);
-                baseNoise += valleyNoise;
+                baseNoise += valleyNoise * (terrainProps.valleyDensity || 0.2);
 
                 // Add cliff faces and steep terrain
                 const cliffNoise = this.terrainGenerator.generateCliffs(x, y, z, this.planetRadius, terrainProps);
-                baseNoise += cliffNoise;
+                baseNoise += cliffNoise * (terrainProps.cliffDensity || 0.15);
 
                 // Add mesa and plateau formations
                 const mesaNoise = this.terrainGenerator.generateMesas(x, y, z, this.planetRadius, terrainProps);
-                baseNoise += mesaNoise;
+                baseNoise += mesaNoise * (terrainProps.mesaDensity || 0.1);
 
                 // Add crater features
                 const craterNoise = this.terrainGenerator.generateCraters(x, y, z, this.planetRadius, terrainProps);
-                baseNoise += craterNoise;
+                baseNoise += craterNoise * (terrainProps.craterDensity || 0.25);
 
                 const newDistance = distance + baseNoise;
 
@@ -380,6 +384,9 @@ class GameEngine {
     }
 
     handleRoverMovement() {
+        // Skip input processing when UI menus are open
+        if (!this.inputEnabled) return;
+
         // Merge keyboard and touch inputs
         let inputKeys = { ...this.keys };
 
@@ -479,13 +486,32 @@ class GameEngine {
     // Planet switching function
     switchPlanet(planetType) {
         if (planetTypeManager.setPlanetType(planetType)) {
-            // Remove existing planet
+            // Remove and dispose existing planet
             if (this.planet) {
+                if (this.planet.geometry) this.planet.geometry.dispose();
+                if (this.planet.material) {
+                    if (Array.isArray(this.planet.material)) {
+                        this.planet.material.forEach(m => m.dispose());
+                    } else {
+                        this.planet.material.dispose();
+                    }
+                }
                 this.scene.remove(this.planet);
             }
 
-            // Remove existing rover and recreate it with updated materials
+            // Remove and dispose existing rover and recreate it with updated materials
             if (this.rover) {
+                // Traverse rover group and dispose all mesh resources
+                this.rover.traverse((child) => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) {
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(m => m.dispose());
+                        } else {
+                            child.material.dispose();
+                        }
+                    }
+                });
                 this.scene.remove(this.rover);
             }
 

@@ -113,6 +113,9 @@ class RenderingEngine {
         if (typeof MobileInputHandler === 'undefined' || !MobileInputHandler.isMobileDevice()) {
             // Mouse controls for camera - simpler rotation around rover
             document.addEventListener('mousedown', (event) => {
+                // Check if gameplay input is enabled (UI modal not open)
+                if (window.gameEngine && !window.gameEngine.inputEnabled) return;
+
                 this.mouseDown = true;
                 this.mouseX = event.clientX;
                 this.mouseY = event.clientY;
@@ -140,6 +143,9 @@ class RenderingEngine {
 
             // Mouse wheel zoom control
             document.addEventListener('wheel', (event) => {
+                // Check if gameplay input is enabled (UI modal not open)
+                if (window.gameEngine && !window.gameEngine.inputEnabled) return;
+
                 event.preventDefault(); // Prevent page scrolling
 
                 const zoomSensitivity = 0.1;

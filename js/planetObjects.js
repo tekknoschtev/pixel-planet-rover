@@ -221,26 +221,38 @@ class PlanetObjectManager {
             // Generate random position on sphere
             const lat = (rng.next() - 0.5) * Math.PI; // -π/2 to π/2
             const lon = rng.next() * Math.PI * 2;     // 0 to 2π
-            
+
             // Convert to Cartesian coordinates on planet surface
             const x = Math.cos(lat) * Math.cos(lon);
             const y = Math.sin(lat);
             const z = Math.cos(lat) * Math.sin(lon);
-            
-            // Get terrain height at this position (simplified - using base radius for now)
-            const surfaceHeight = planetRadius;
-            
+
             // Random size within range
             const size = rng.range(objectDef.sizeRange.min, objectDef.sizeRange.max);
-            
+
+            // Get actual terrain height at this position using raycasting
+            // If terrain generator is available, use it; otherwise fall back to base radius
+            let surfaceHeight = planetRadius;
+            if (typeof window.terrainGenerator !== 'undefined' && window.terrainGenerator && planetMesh) {
+                const terrainHeight = window.terrainGenerator.getSurfaceHeightAtPosition(
+                    x * planetRadius,
+                    z * planetRadius,
+                    planetMesh,
+                    planetRadius
+                );
+                if (terrainHeight !== undefined && !isNaN(terrainHeight)) {
+                    surfaceHeight = planetRadius + terrainHeight;
+                }
+            }
+
             // Create geometry and material
             const geometry = objectDef.geometry();
             const material = objectDef.material(planetMaterial);
-            
+
             // Create mesh
             const mesh = new THREE.Mesh(geometry, material);
-            
-            // Position on planet surface
+
+            // Position on planet surface - place object on the actual terrain surface
             const position = new THREE.Vector3(x, y, z).multiplyScalar(surfaceHeight + size * 0.5);
             mesh.position.copy(position);
             

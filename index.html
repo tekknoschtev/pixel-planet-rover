@@ -178,10 +178,31 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Configuration modules (loaded first, no dependencies) -->
+    <script src="js/config/PhysicsConfig.js"></script>
+    <script src="js/config/RenderingConfig.js"></script>
+    <script src="js/config/TerrainConfig.js"></script>
+    <script src="js/config/GameConfig.js"></script>
+
+    <!-- Utility modules (no dependencies) -->
+    <script src="js/utils/RNGUtils.js"></script>
+    <script src="js/utils/ColorUtils.js"></script>
+    <script src="js/utils/ErrorHandler.js"></script>
+    <script src="js/utils/ValidationUtils.js"></script>
+    <script src="js/utils/SpatialHashGrid.js"></script>
+    <script src="js/utils/TerrainHeightCache.js"></script>
+    <script src="js/utils/MemoryProfiler.js"></script>
+
+    <!-- Dependency injection infrastructure -->
+    <script src="js/core/DependencyContainer.js"></script>
+    <script src="js/core/ServiceBootstrapper.js"></script>
+
     <!-- Core systems -->
     <script src="js/planetTypes.js"></script>
     <script src="js/planetGenerator.js"></script>
     <script src="js/planetObjects.js"></script>
+
     <!-- Modular game systems -->
     <script src="js/terrain/TerrainGenerator.js"></script>
     <script src="js/physics/RoverPhysics.js"></script>
@@ -192,7 +213,8 @@
     <script src="js/ui/ModalManager.js"></script>
     <script src="js/input/MobileInputHandler.js"></script>
     <script src="js/core/GameEngine.js"></script>
-    <!-- Main game orchestration -->
+
+    <!-- Main game orchestration with DI -->
     <script src="js/game.js"></script>
 </body>
 </html>

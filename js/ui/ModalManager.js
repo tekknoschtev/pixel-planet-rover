@@ -188,11 +188,21 @@ class ModalManager {
 
         modal.style.display = 'block';
         this.selectedPlanetType = planetTypeManager.getCurrentPlanetType();
+
+        // Disable gameplay input when modal is open
+        if (window.gameEngine) {
+            window.gameEngine.inputEnabled = false;
+        }
     }
 
     closePlanetModal() {
         const modal = document.getElementById('planetModal');
         modal.style.display = 'none';
+
+        // Re-enable gameplay input when modal is closed
+        if (window.gameEngine) {
+            window.gameEngine.inputEnabled = true;
+        }
     }
 
     applyPlanetSelection() {
