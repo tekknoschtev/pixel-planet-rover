@@ -1,5 +1,5 @@
 // Planet Type Management System
-class PlanetTypeManager {
+export class PlanetTypeManager {
     constructor() {
         this.planetConfigs = null;
         this.generatedPlanets = new Map(); // Store generated planets
@@ -297,6 +297,5 @@ class PlanetTypeManager {
     }
 }
 
-// Export singleton instance
-const planetTypeManager = new PlanetTypeManager();
-window.planetTypeManager = planetTypeManager; // Make globally accessible for debugging
+// Shared singleton instance
+export const planetTypeManager = new PlanetTypeManager();

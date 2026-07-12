@@ -1,5 +1,8 @@
 // Planet Objects Management System
-class PlanetObjectManager {
+import * as THREE from 'three';
+import { planetTypeManager } from './planetTypes.js';
+
+export class PlanetObjectManager {
     constructor() {
         this.objects = []; // All spawned objects on current planet
         this.objectTypes = new Map(); // Object type definitions
@@ -230,18 +233,16 @@ class PlanetObjectManager {
             // Random size within range
             const size = rng.range(objectDef.sizeRange.min, objectDef.sizeRange.max);
 
-            // Get actual terrain height at this position using raycasting
-            // If terrain generator is available, use it; otherwise fall back to base radius
+            // Find the actual terrain surface along this radial direction by
+            // raycasting from well outside the planet toward its center.
             let surfaceHeight = planetRadius;
-            if (typeof window.terrainGenerator !== 'undefined' && window.terrainGenerator && planetMesh) {
-                const terrainHeight = window.terrainGenerator.getSurfaceHeightAtPosition(
-                    x * planetRadius,
-                    z * planetRadius,
-                    planetMesh,
-                    planetRadius
-                );
-                if (terrainHeight !== undefined && !isNaN(terrainHeight)) {
-                    surfaceHeight = planetRadius + terrainHeight;
+            if (planetMesh) {
+                const surfaceDirection = new THREE.Vector3(x, y, z);
+                const rayOrigin = surfaceDirection.clone().multiplyScalar(planetRadius * 3);
+                const raycaster = new THREE.Raycaster(rayOrigin, surfaceDirection.clone().negate());
+                const hits = raycaster.intersectObject(planetMesh);
+                if (hits.length > 0) {
+                    surfaceHeight = hits[0].point.length();
                 }
             }
 
@@ -374,21 +375,7 @@ class PlanetObjectManager {
         return stats;
     }
 
-    // Create seeded RNG helper (for consistency with planet generator)
-    createSeededRNG(seed) {
-        let currentSeed = seed;
-        return {
-            next() {
-                currentSeed = (currentSeed * 1664525 + 1013904223) % Math.pow(2, 32);
-                return currentSeed / Math.pow(2, 32);
-            },
-            range(min, max) {
-                return min + (max - min) * this.next();
-            }
-        };
-    }
 }
 
-// Export singleton instance
-const planetObjectManager = new PlanetObjectManager();
-window.planetObjectManager = planetObjectManager; // Make globally accessible for debugging
+// Shared singleton instance
+export const planetObjectManager = new PlanetObjectManager();

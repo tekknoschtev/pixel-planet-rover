@@ -1,5 +1,7 @@
 // RoverPhysics.js - Handles rover physics, movement, and ground contact detection
-class RoverPhysics {
+import * as THREE from 'three';
+
+export class RoverPhysics {
     constructor() {
         // Physics variables
         this.roverVelocity = new THREE.Vector3(0, 0, 0); // Rover's current velocity
@@ -418,6 +420,3 @@ class RoverPhysics {
         this.roverRotation.yaw = this.lerp(this.roverRotation.yaw, -newHeading, this.rotationLerpSpeed);
     }
 }
-
-// Export for global use
-window.RoverPhysics = RoverPhysics;

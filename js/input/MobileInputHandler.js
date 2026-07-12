@@ -1,6 +1,9 @@
 // MobileInputHandler.js - Handles touch input for mobile devices
-class MobileInputHandler {
-    constructor() {
+export class MobileInputHandler {
+    constructor(renderingEngine) {
+        // Rendering engine reference for camera orbit/zoom gestures
+        this.renderingEngine = renderingEngine;
+
         // Touch state tracking
         this.touches = new Map();
         this.lastTouchTime = 0;
@@ -316,10 +319,10 @@ class MobileInputHandler {
 
     handleDoubleTap(touchData) {
         // Double tap anywhere (except joystick): center camera on rover
-        if (!touchData.isJoystick && window.gameEngine && window.gameEngine.renderingEngine) {
-            window.gameEngine.renderingEngine.cameraAngle.theta = 0;
-            window.gameEngine.renderingEngine.cameraAngle.phi = 1.1;
-            window.gameEngine.renderingEngine.updateCameraPosition();
+        if (!touchData.isJoystick && this.renderingEngine) {
+            this.renderingEngine.cameraAngle.theta = 0;
+            this.renderingEngine.cameraAngle.phi = 1.1;
+            this.renderingEngine.updateCameraPosition();
         }
     }
 
@@ -401,8 +404,8 @@ class MobileInputHandler {
             const deltaY = touchData.y - this.cameraInputState.lastOrbitPosition.y;
 
             // Apply camera rotation
-            if (window.gameEngine && window.gameEngine.renderingEngine) {
-                const renderingEngine = window.gameEngine.renderingEngine;
+            if (this.renderingEngine) {
+                const renderingEngine = this.renderingEngine;
                 renderingEngine.cameraAngle.theta -= deltaX * 0.01;
                 renderingEngine.cameraAngle.phi += deltaY * 0.01;
                 renderingEngine.cameraAngle.phi = Math.max(0.1, Math.min(Math.PI - 0.1, renderingEngine.cameraAngle.phi));
@@ -429,8 +432,8 @@ class MobileInputHandler {
             const deltaDistance = distance - this.cameraInputState.lastPinchDistance;
 
             // Apply zoom
-            if (window.gameEngine && window.gameEngine.renderingEngine) {
-                const renderingEngine = window.gameEngine.renderingEngine;
+            if (this.renderingEngine) {
+                const renderingEngine = this.renderingEngine;
                 renderingEngine.cameraDistance -= deltaDistance * 0.1;
                 renderingEngine.cameraDistance = Math.max(20, Math.min(150, renderingEngine.cameraDistance));
                 renderingEngine.updateCameraPosition();
@@ -487,6 +490,3 @@ class MobileInputHandler {
         };
     }
 }
-
-// Export for global use
-window.MobileInputHandler = MobileInputHandler;

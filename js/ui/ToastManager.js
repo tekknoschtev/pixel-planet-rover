@@ -1,5 +1,5 @@
 // ToastManager.js - Toast Notification System
-class ToastManager {
+export class ToastManager {
     constructor() {
         this.container = document.getElementById('toastContainer');
         this.toasts = new Map();
@@ -12,10 +12,13 @@ class ToastManager {
         // Create toast element
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.innerHTML = `
-            ${message}
-            <button class="toast-close" onclick="window.toastManager.close(${toastId})">&times;</button>
-        `;
+        toast.textContent = message;
+
+        const closeButton = document.createElement('button');
+        closeButton.className = 'toast-close';
+        closeButton.innerHTML = '&times;';
+        closeButton.addEventListener('click', () => this.close(toastId));
+        toast.appendChild(closeButton);
 
         // Add to container
         this.container.appendChild(toast);
@@ -67,7 +70,7 @@ class ToastManager {
 }
 
 // Custom confirmation dialog
-function showConfirmDialog(message, onConfirm, onCancel = null) {
+export function showConfirmDialog(message, onConfirm, onCancel = null) {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal';
     backdrop.style.display = 'block';
@@ -111,10 +114,5 @@ function showConfirmDialog(message, onConfirm, onCancel = null) {
     });
 }
 
-// Initialize toast manager and make it globally accessible
-const toastManager = new ToastManager();
-window.toastManager = toastManager;
-window.showConfirmDialog = showConfirmDialog;
-
-// Export for module use as well
-window.ToastManager = ToastManager;
+// Shared singleton instance
+export const toastManager = new ToastManager();

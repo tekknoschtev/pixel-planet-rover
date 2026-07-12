@@ -13,7 +13,7 @@
     <div id="container"></div>
     
     <div id="ui">
-        <button onclick="showPlanetModal()" class="pixel-button">Change Planet</button>
+        <button id="openPlanetModalBtn" class="pixel-button">Change Planet</button>
     </div>
     
     <!-- Toast Notifications -->
@@ -28,9 +28,9 @@
             </div>
             <div class="modal-body">
                 <div class="modal-tabs">
-                    <button class="tab-button active" onclick="showPlanetTab('preset')">Preset Planets</button>
-                    <button class="tab-button" onclick="showPlanetTab('generator')">Planet Generator</button>
-                    <button class="tab-button" onclick="showPlanetTab('generated')">Generated Planets</button>
+                    <button class="tab-button active" data-tab="preset">Preset Planets</button>
+                    <button class="tab-button" data-tab="generator">Planet Generator</button>
+                    <button class="tab-button" data-tab="generated">Generated Planets</button>
                 </div>
                 
                 <div id="presetTab" class="tab-content active">
@@ -72,7 +72,7 @@
                             <div class="control-group">
                                 <label>Import Planet:</label>
                                 <input type="text" id="importData" placeholder="Paste planet export data here">
-                                <button class="btn btn-secondary" onclick="importPlanet()" style="margin-top: 5px;">Import Planet</button>
+                                <button id="importPlanetBtn" class="btn btn-secondary" style="margin-top: 5px;">Import Planet</button>
                             </div>
                             
                             <div class="biome-mixing-section">
@@ -159,8 +159,8 @@
                         </div>
                         
                         <div class="generator-buttons">
-                            <button class="btn btn-secondary" onclick="randomizeGeneratorParams()">Randomize All</button>
-                            <button class="btn btn-primary" onclick="generateAndVisitPlanet()">Generate & Visit Planet</button>
+                            <button id="randomizeParamsBtn" class="btn btn-secondary">Randomize All</button>
+                            <button id="generatePlanetBtn" class="btn btn-primary">Generate & Visit Planet</button>
                         </div>
                     </div>
                 </div>
@@ -170,51 +170,20 @@
                         <!-- Generated planets will be populated here -->
                     </div>
                     <div class="generated-buttons">
-                        <button class="btn btn-secondary" onclick="clearGeneratedPlanets()">Clear All Generated</button>
+                        <button id="clearGeneratedBtn" class="btn btn-secondary">Clear All Generated</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-    <!-- Configuration modules (loaded first, no dependencies) -->
-    <script src="js/config/PhysicsConfig.js"></script>
-    <script src="js/config/RenderingConfig.js"></script>
-    <script src="js/config/TerrainConfig.js"></script>
-    <script src="js/config/GameConfig.js"></script>
-
-    <!-- Utility modules (no dependencies) -->
-    <script src="js/utils/RNGUtils.js"></script>
-    <script src="js/utils/ColorUtils.js"></script>
-    <script src="js/utils/ErrorHandler.js"></script>
-    <script src="js/utils/ValidationUtils.js"></script>
-    <script src="js/utils/SpatialHashGrid.js"></script>
-    <script src="js/utils/TerrainHeightCache.js"></script>
-    <script src="js/utils/MemoryProfiler.js"></script>
-
-    <!-- Dependency injection infrastructure -->
-    <script src="js/core/DependencyContainer.js"></script>
-    <script src="js/core/ServiceBootstrapper.js"></script>
-
-    <!-- Core systems -->
-    <script src="js/planetTypes.js"></script>
-    <script src="js/planetGenerator.js"></script>
-    <script src="js/planetObjects.js"></script>
-
-    <!-- Modular game systems -->
-    <script src="js/terrain/TerrainGenerator.js"></script>
-    <script src="js/physics/RoverPhysics.js"></script>
-    <script src="js/particles/ParticleSystem.js"></script>
-    <script src="js/rendering/RenderingEngine.js"></script>
-    <script src="js/biomes/BiomeManager.js"></script>
-    <script src="js/ui/ToastManager.js"></script>
-    <script src="js/ui/ModalManager.js"></script>
-    <script src="js/input/MobileInputHandler.js"></script>
-    <script src="js/core/GameEngine.js"></script>
-
-    <!-- Main game orchestration with DI -->
-    <script src="js/game.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"
+        }
+    }
+    </script>
+    <script type="module" src="js/game.js"></script>
 </body>
 </html>

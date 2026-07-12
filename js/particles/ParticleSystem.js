@@ -1,5 +1,7 @@
 // ParticleSystem.js - Handles dust and ambient particle systems
-class ParticleSystem {
+import * as THREE from 'three';
+
+export class ParticleSystem {
     constructor() {
         // Particle system variables
         this.dustParticleSystem = null;
@@ -60,7 +62,6 @@ class ParticleSystem {
             });
         }
 
-        console.log('Created dust particle system with', this.maxDustParticles, 'particles');
     }
 
     spawnDustParticles(position, velocity, count = 5) {
@@ -222,7 +223,6 @@ class ParticleSystem {
             });
         }
 
-        console.log('Created ambient particle system with', this.maxAmbientParticles, 'particles');
     }
 
     updateAmbientParticles() {
@@ -348,6 +348,3 @@ class ParticleSystem {
         this.ambientParticles = [];
     }
 }
-
-// Export for global use
-window.ParticleSystem = ParticleSystem;
