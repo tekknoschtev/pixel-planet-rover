@@ -1,5 +1,9 @@
 // RenderingEngine.js - Handles pixel art rendering and camera controls
-class RenderingEngine {
+import * as THREE from 'three';
+import { planetTypeManager } from '../planetTypes.js';
+import { MobileInputHandler } from '../input/MobileInputHandler.js';
+
+export class RenderingEngine {
     constructor() {
         // Pixel art rendering variables
         this.pixelRenderTarget = null;
@@ -24,8 +28,8 @@ class RenderingEngine {
         this.mouseX = 0;
         this.mouseY = 0;
 
-        // Update function reference
-        this.updateCameraPosition = this.updateCameraPosition.bind(this);
+        // Callback that reports whether gameplay input is enabled (set via setupControls)
+        this.isInputEnabled = () => true;
     }
 
     setReferences(renderer, camera, scene, rover, planetRadius) {
@@ -61,23 +65,6 @@ class RenderingEngine {
         this.pixelScene.add(quad);
     }
 
-    drawPixelatedCircle(ctx, centerX, centerY, radius, color) {
-        ctx.fillStyle = color;
-        ctx.imageSmoothingEnabled = false;
-
-        // Draw circle using pixels - classic Bresenham-style approach
-        const pixelSize = 2; // Match game's chunky pixel aesthetic
-
-        for (let x = -radius; x <= radius; x += pixelSize) {
-            for (let y = -radius; y <= radius; y += pixelSize) {
-                const distance = Math.sqrt(x * x + y * y);
-                if (distance <= radius) {
-                    ctx.fillRect(centerX + x, centerY + y, pixelSize, pixelSize);
-                }
-            }
-        }
-    }
-
     updatePixelArtSize() {
         if (this.pixelRenderTarget) {
             const width = Math.floor(window.innerWidth / this.pixelSize);
@@ -108,13 +95,17 @@ class RenderingEngine {
         this.camera.lookAt(this.rover.position);
     }
 
-    setupControls() {
+    setupControls(isInputEnabled = null) {
+        if (isInputEnabled) {
+            this.isInputEnabled = isInputEnabled;
+        }
+
         // Only setup mouse controls if not on mobile device
-        if (typeof MobileInputHandler === 'undefined' || !MobileInputHandler.isMobileDevice()) {
+        if (!MobileInputHandler.isMobileDevice()) {
             // Mouse controls for camera - simpler rotation around rover
             document.addEventListener('mousedown', (event) => {
                 // Check if gameplay input is enabled (UI modal not open)
-                if (window.gameEngine && !window.gameEngine.inputEnabled) return;
+                if (!this.isInputEnabled()) return;
 
                 this.mouseDown = true;
                 this.mouseX = event.clientX;
@@ -144,7 +135,7 @@ class RenderingEngine {
             // Mouse wheel zoom control
             document.addEventListener('wheel', (event) => {
                 // Check if gameplay input is enabled (UI modal not open)
-                if (window.gameEngine && !window.gameEngine.inputEnabled) return;
+                if (!this.isInputEnabled()) return;
 
                 event.preventDefault(); // Prevent page scrolling
 
@@ -162,9 +153,6 @@ class RenderingEngine {
 
         // Initialize camera position
         this.updateCameraPosition();
-
-        // Make updateCameraPosition globally accessible for delayed initialization
-        window.updateCameraPosition = this.updateCameraPosition;
     }
 
     handlePixelSizeControls(keys) {
@@ -172,12 +160,10 @@ class RenderingEngine {
         if (keys['Minus'] || keys['NumpadSubtract']) {
             this.pixelSize = Math.max(1, this.pixelSize - 1);
             this.updatePixelArtSize();
-            console.log('Pixel size:', this.pixelSize);
             return true;
         } else if (keys['Equal'] || keys['NumpadAdd']) {
             this.pixelSize = Math.min(8, this.pixelSize + 1);
             this.updatePixelArtSize();
-            console.log('Pixel size:', this.pixelSize);
             return true;
         }
         return false;
@@ -249,13 +235,6 @@ class RenderingEngine {
                 fogSettings.color,
                 fogSettings.density
             );
-
-            console.log('Applied atmospheric fog:', {
-                color: fogSettings.color.toString(16),
-                density: fogSettings.density
-            });
-        } else {
-            console.log('No atmospheric fog (clear atmosphere or no config)');
         }
     }
 
@@ -273,6 +252,3 @@ class RenderingEngine {
         this.updateCameraPosition();
     }
 }
-
-// Export for global use
-window.RenderingEngine = RenderingEngine;

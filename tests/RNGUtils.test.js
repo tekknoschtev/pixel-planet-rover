@@ -1,8 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-
-// Import RNGUtils (adjust path if needed)
-// Since this is in tests folder, we need to use relative paths
-import RNGUtils from '../js/utils/RNGUtils.js';
+import { describe, it, expect } from 'vitest';
+import { RNGUtils } from '../js/utils/RNGUtils.js';
 
 describe('RNGUtils', () => {
     describe('createSeededRNG', () => {

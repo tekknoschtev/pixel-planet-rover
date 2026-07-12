@@ -1,5 +1,17 @@
 // GameEngine.js - Core game engine that coordinates all systems
-class GameEngine {
+import * as THREE from 'three';
+import { planetTypeManager } from '../planetTypes.js';
+import { planetGenerator } from '../planetGenerator.js';
+import { planetObjectManager } from '../planetObjects.js';
+import { RNGUtils } from '../utils/RNGUtils.js';
+import { TerrainGenerator } from '../terrain/TerrainGenerator.js';
+import { RoverPhysics } from '../physics/RoverPhysics.js';
+import { ParticleSystem } from '../particles/ParticleSystem.js';
+import { RenderingEngine } from '../rendering/RenderingEngine.js';
+import { BiomeManager } from '../biomes/BiomeManager.js';
+import { MobileInputHandler } from '../input/MobileInputHandler.js';
+
+export class GameEngine {
     constructor() {
         // Core Three.js objects
         this.scene = null;
@@ -10,7 +22,6 @@ class GameEngine {
 
         // Game state
         this.planetRadius = 80;
-        this.roverPosition = { lat: 0, lon: 0 };
         this.roverHeading = Math.PI / 2; // rover's facing direction in radians (start facing north)
         this.planetQuaternion = new THREE.Quaternion(); // Use quaternion instead of Euler rotations
         this.keys = {};
@@ -84,8 +95,6 @@ class GameEngine {
 
         // Start render loop
         this.startAnimationLoop();
-
-        console.log('Game Engine initialized successfully');
     }
 
     createPlanet(planetType = null) {
@@ -110,15 +119,9 @@ class GameEngine {
         const hasBiomeMixing = planetConfig && planetConfig.biomeMix;
         let biomeRegionData = null;
 
-        console.log('Creating planet with biome mixing:', hasBiomeMixing);
-        if (planetConfig) {
-            console.log('Planet config biomeMix:', planetConfig.biomeMix);
-        }
-
         if (hasBiomeMixing) {
             // Initialize biome region generation
             biomeRegionData = this.biomeManager.initializeBiomeRegions(planetConfig.biomeMix, planetConfig.seed || 12345);
-            console.log('Initialized biome regions:', biomeRegionData);
         }
 
         // Use fallback values if configuration isn't loaded
@@ -228,13 +231,6 @@ class GameEngine {
             flatShading: true // Force flat shading to prevent color interpolation between vertices
         });
 
-        console.log('Created material with vertex colors:', hasBiomeMixing);
-        console.log('Material properties:', {
-            color: material.color.getHex(),
-            vertexColors: material.vertexColors,
-            flatShading: material.flatShading
-        });
-
         this.planet = new THREE.Mesh(geometry, material);
         this.planet.receiveShadow = true;
         this.scene.add(this.planet);
@@ -253,7 +249,7 @@ class GameEngine {
 
         // Create seeded RNG for consistent object placement
         const seed = currentConfig.seed || Date.now() % 1000000;
-        const rng = planetObjectManager.createSeededRNG(seed);
+        const rng = RNGUtils.createSeededRNG(seed);
 
         // Generate objects using the new system
         planetObjectManager.generateObjects(currentConfig, rng, this.planet);
@@ -343,20 +339,12 @@ class GameEngine {
 
         // Update rover physics heading
         this.roverPhysics.updateHeading(this.roverHeading);
-
-        // Update position display with wheel contact info
-        const contactResults = this.roverPhysics.calculateGroundContact();
-        const groundStatus = this.roverPhysics.isGrounded ? `Grounded (${contactResults.groundedCount}/4 wheels)` : "Airborne";
-        // Position display removed for cleaner UI
     }
 
     setupControls() {
         // Initialize mobile input handler if on mobile device
-        if (typeof MobileInputHandler !== 'undefined' && MobileInputHandler.isMobileDevice()) {
-            this.mobileInputHandler = new MobileInputHandler();
-            console.log('Mobile device detected - touch controls enabled');
-        } else {
-            console.log('Desktop device detected - keyboard/mouse controls enabled');
+        if (MobileInputHandler.isMobileDevice()) {
+            this.mobileInputHandler = new MobileInputHandler(this.renderingEngine);
         }
 
         // Keyboard controls
@@ -375,7 +363,7 @@ class GameEngine {
         });
 
         // Setup camera and mouse controls
-        this.renderingEngine.setupControls();
+        this.renderingEngine.setupControls(() => this.inputEnabled);
 
         // Handle window resize
         window.addEventListener('resize', () => {
@@ -417,10 +405,6 @@ class GameEngine {
             // Update rover heading from physics
             this.roverHeading = -this.roverPhysics.roverRotation.yaw;
 
-            // Wrap longitude for display purposes only
-            if (this.roverPosition.lon > 180) this.roverPosition.lon -= 360;
-            if (this.roverPosition.lon < -180) this.roverPosition.lon += 360;
-
             this.positionRoverOnPlanet();
         }
     }
@@ -450,7 +434,6 @@ class GameEngine {
                 const distance = roverWorldPos.distanceTo(objectWorldPos);
                 if (distance < 4) {
                     planetObjectManager.discoverObject(obj.id);
-                    console.log(`🎯 Discovered ${obj.definition.name}! ${obj.definition.description}`);
                 }
             }
         }
@@ -478,8 +461,6 @@ class GameEngine {
             if (this.roverPhysics.roverVelocity) {
                 this.roverPhysics.roverVelocity.multiplyScalar(0.7); // Slow down on impact
             }
-
-            console.log(`💥 Collision with ${collision.object.definition.name}!`);
         }
     }
 
@@ -540,7 +521,6 @@ class GameEngine {
             // Reset rover position on new planet
             this.positionRoverOnPlanet();
 
-            console.log('Switched to planet:', planetType);
             return true;
         }
         return false;
@@ -597,20 +577,4 @@ class GameEngine {
             this.animationId = null;
         }
     }
-
-    // Public API for accessing game state
-    getRoverState() {
-        return this.roverPhysics.getRoverState();
-    }
-
-    getPlanetState() {
-        return {
-            radius: this.planetRadius,
-            quaternion: this.planetQuaternion.clone(),
-            position: this.roverPosition
-        };
-    }
 }
-
-// Export for global use
-window.GameEngine = GameEngine;

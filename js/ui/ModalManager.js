@@ -1,6 +1,11 @@
 // ModalManager.js - Handles planet selection modal and UI controls
-class ModalManager {
-    constructor() {
+import { planetTypeManager } from '../planetTypes.js';
+import { planetGenerator } from '../planetGenerator.js';
+import { toastManager, showConfirmDialog } from './ToastManager.js';
+
+export class ModalManager {
+    constructor(gameEngine) {
+        this.gameEngine = gameEngine;
         this.selectedPlanetType = null;
         this.biomeSliders = [
             { id: 'marsSlider', valueId: 'marsValue', biome: 'mars' },
@@ -21,12 +26,6 @@ class ModalManager {
         // Initialize generator sliders
         this.initializeGeneratorSliders();
 
-        // Populate planet options
-        const populatePlanetOptions = () => {
-            this.populatePresetPlanets();
-            this.populateGeneratedPlanets();
-        };
-
         // Close button functionality
         closeBtn.addEventListener('click', () => this.closePlanetModal());
 
@@ -35,13 +34,20 @@ class ModalManager {
             if (e.target === modal) this.closePlanetModal();
         });
 
-        // Store the populate function so we can call it later
-        window.repopulatePlanetOptions = populatePlanetOptions;
-        window.populatePresetPlanets = () => this.populatePresetPlanets();
-        window.populateGeneratedPlanets = () => this.populateGeneratedPlanets();
+        // Static buttons in the modal markup
+        document.getElementById('openPlanetModalBtn').addEventListener('click', () => this.showPlanetModal());
+        document.getElementById('importPlanetBtn').addEventListener('click', () => this.importPlanet());
+        document.getElementById('randomizeParamsBtn').addEventListener('click', () => this.randomizeGeneratorParams());
+        document.getElementById('generatePlanetBtn').addEventListener('click', () => this.generateAndVisitPlanet());
+        document.getElementById('clearGeneratedBtn').addEventListener('click', () => this.clearGeneratedPlanets());
+    }
 
-        // Don't populate immediately - wait for explicit call
-        // This will be called when the modal is first opened
+    createButton(label, className, onClick) {
+        const button = document.createElement('button');
+        button.className = className;
+        button.textContent = label;
+        button.addEventListener('click', onClick);
+        return button;
     }
 
     populatePresetPlanets() {
@@ -55,46 +61,17 @@ class ModalManager {
         }
 
         planets.forEach(planet => {
-            const planetOption = document.createElement('div');
-            planetOption.className = 'planet-option';
-            planetOption.dataset.planetId = planet.id;
-
-            // Get planet configuration for preview color
             const config = planetTypeManager.getPlanetConfig(planet.id);
             const previewColor = config ? config.material.color.replace('0x', '#') : '#8B4513';
-
-            planetOption.innerHTML = `
-                <canvas class="planet-preview" width="32" height="32"></canvas>
-                <div class="planet-name">${planet.name}</div>
-                <div class="planet-description">${planet.description}</div>
-            `;
-
-            // Draw pixelated circle on canvas
-            const canvas = planetOption.querySelector('.planet-preview');
-            const ctx = canvas.getContext('2d');
-            this.drawPixelatedCircle(ctx, 16, 16, 12, previewColor);
-
-            // Mark current planet
-            if (planet.id === planetTypeManager.getCurrentPlanetType()) {
-                planetOption.classList.add('selected');
-                this.selectedPlanetType = planet.id;
-            }
-
-            // Add click handler
-            planetOption.addEventListener('click', () => {
-                this.selectPlanet(planet.id, planetOption);
-            });
-
+            const planetOption = this.createPlanetOption(planet, previewColor);
             planetGrid.appendChild(planetOption);
         });
 
         // Add bottom buttons
         const buttonsDiv = document.createElement('div');
         buttonsDiv.className = 'planet-buttons';
-        buttonsDiv.innerHTML = `
-            <button class="btn btn-secondary" onclick="window.modalManager.closePlanetModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="window.modalManager.applyPlanetSelection()">Visit Planet</button>
-        `;
+        buttonsDiv.appendChild(this.createButton('Cancel', 'btn btn-secondary', () => this.closePlanetModal()));
+        buttonsDiv.appendChild(this.createButton('Visit Planet', 'btn btn-primary', () => this.applyPlanetSelection()));
         planetGrid.appendChild(buttonsDiv);
     }
 
@@ -115,36 +92,12 @@ class ModalManager {
 
         generatedPlanets.forEach(planet => {
             const planetConfig = planetTypeManager.getPlanetConfig(planet.id);
-            const planetOption = document.createElement('div');
-            planetOption.className = 'planet-option generated';
-            planetOption.dataset.planetId = planet.id;
-
-            // Get preview color from planet config
             const previewColor = planetConfig ? planetConfig.material.color.replace('0x', '#') : '#8B4513';
-
-            planetOption.innerHTML = `
-                <canvas class="planet-preview" width="32" height="32"></canvas>
-                <div class="planet-name">${planet.name}</div>
-                <div class="planet-description">Based on ${planet.baseBiome} • Seed: ${planet.seed}</div>
-                <button class="planet-export-btn" onclick="event.stopPropagation(); window.modalManager.exportPlanet('${planet.id}')" title="Export Planet">📤</button>
-            `;
-
-            // Draw pixelated circle on canvas
-            const canvas = planetOption.querySelector('.planet-preview');
-            const ctx = canvas.getContext('2d');
-            this.drawPixelatedCircle(ctx, 16, 16, 12, previewColor);
-
-            // Mark current planet
-            if (planet.id === planetTypeManager.getCurrentPlanetType()) {
-                planetOption.classList.add('selected');
-                this.selectedPlanetType = planet.id;
-            }
-
-            // Add click handler
-            planetOption.addEventListener('click', () => {
-                this.selectPlanet(planet.id, planetOption);
-            });
-
+            const planetOption = this.createPlanetOption(
+                { ...planet, description: `Based on ${planet.baseBiome} • Seed: ${planet.seed}` },
+                previewColor,
+                { generated: true }
+            );
             generatedGrid.appendChild(planetOption);
         });
 
@@ -153,12 +106,58 @@ class ModalManager {
         // Add management buttons
         const buttonsDiv = document.createElement('div');
         buttonsDiv.className = 'planet-buttons';
-        buttonsDiv.innerHTML = `
-            <button class="btn btn-secondary" onclick="window.modalManager.exportAllGeneratedPlanets()">Export All</button>
-            <button class="btn btn-secondary" onclick="window.modalManager.clearGeneratedPlanets()">Clear All</button>
-            <button class="btn btn-primary" onclick="window.modalManager.applyPlanetSelection()">Visit Selected</button>
-        `;
+        buttonsDiv.appendChild(this.createButton('Export All', 'btn btn-secondary', () => this.exportAllGeneratedPlanets()));
+        buttonsDiv.appendChild(this.createButton('Clear All', 'btn btn-secondary', () => this.clearGeneratedPlanets()));
+        buttonsDiv.appendChild(this.createButton('Visit Selected', 'btn btn-primary', () => this.applyPlanetSelection()));
         generatedList.appendChild(buttonsDiv);
+    }
+
+    createPlanetOption(planet, previewColor, { generated = false } = {}) {
+        const planetOption = document.createElement('div');
+        planetOption.className = generated ? 'planet-option generated' : 'planet-option';
+        planetOption.dataset.planetId = planet.id;
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'planet-preview';
+        canvas.width = 32;
+        canvas.height = 32;
+        planetOption.appendChild(canvas);
+
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'planet-name';
+        nameDiv.textContent = planet.name;
+        planetOption.appendChild(nameDiv);
+
+        const descriptionDiv = document.createElement('div');
+        descriptionDiv.className = 'planet-description';
+        descriptionDiv.textContent = planet.description;
+        planetOption.appendChild(descriptionDiv);
+
+        if (generated) {
+            const exportButton = document.createElement('button');
+            exportButton.className = 'planet-export-btn';
+            exportButton.title = 'Export Planet';
+            exportButton.textContent = '📤';
+            exportButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.exportPlanet(planet.id);
+            });
+            planetOption.appendChild(exportButton);
+        }
+
+        this.drawPixelatedCircle(canvas.getContext('2d'), 16, 16, 12, previewColor);
+
+        // Mark current planet
+        if (planet.id === planetTypeManager.getCurrentPlanetType()) {
+            planetOption.classList.add('selected');
+            this.selectedPlanetType = planet.id;
+        }
+
+        planetOption.addEventListener('click', () => {
+            this.selectPlanet(planet.id, planetOption);
+        });
+
+        return planetOption;
     }
 
     drawPixelatedCircle(ctx, centerX, centerY, radius, color) {
@@ -182,16 +181,15 @@ class ModalManager {
         const modal = document.getElementById('planetModal');
 
         // Populate options each time modal is opened to ensure fresh data
-        if (window.repopulatePlanetOptions) {
-            window.repopulatePlanetOptions();
-        }
+        this.populatePresetPlanets();
+        this.populateGeneratedPlanets();
 
         modal.style.display = 'block';
         this.selectedPlanetType = planetTypeManager.getCurrentPlanetType();
 
         // Disable gameplay input when modal is open
-        if (window.gameEngine) {
-            window.gameEngine.inputEnabled = false;
+        if (this.gameEngine) {
+            this.gameEngine.inputEnabled = false;
         }
     }
 
@@ -200,15 +198,15 @@ class ModalManager {
         modal.style.display = 'none';
 
         // Re-enable gameplay input when modal is closed
-        if (window.gameEngine) {
-            window.gameEngine.inputEnabled = true;
+        if (this.gameEngine) {
+            this.gameEngine.inputEnabled = true;
         }
     }
 
     applyPlanetSelection() {
         if (this.selectedPlanetType && this.selectedPlanetType !== planetTypeManager.getCurrentPlanetType()) {
-            if (window.gameEngine) {
-                window.gameEngine.switchPlanet(this.selectedPlanetType);
+            if (this.gameEngine) {
+                this.gameEngine.switchPlanet(this.selectedPlanetType);
             }
         }
         this.closePlanetModal();
@@ -231,9 +229,7 @@ class ModalManager {
 
         tabButtons.forEach(button => {
             button.addEventListener('click', () => {
-                const tabName = button.textContent.toLowerCase().includes('preset') ? 'preset' :
-                              button.textContent.toLowerCase().includes('generator') ? 'generator' : 'generated';
-                this.showPlanetTab(tabName);
+                this.showPlanetTab(button.dataset.tab);
             });
         });
     }
@@ -244,16 +240,16 @@ class ModalManager {
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
         // Show selected tab
+        const tabButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+        if (tabButton) tabButton.classList.add('active');
+
         if (tabName === 'preset') {
-            document.querySelector('.tab-button:nth-child(1)').classList.add('active');
             document.getElementById('presetTab').classList.add('active');
         } else if (tabName === 'generator') {
-            document.querySelector('.tab-button:nth-child(2)').classList.add('active');
             document.getElementById('generatorTab').classList.add('active');
         } else if (tabName === 'generated') {
-            document.querySelector('.tab-button:nth-child(3)').classList.add('active');
             document.getElementById('generatedTab').classList.add('active');
-            if (window.populateGeneratedPlanets) window.populateGeneratedPlanets();
+            this.populateGeneratedPlanets();
         }
     }
 
@@ -513,14 +509,12 @@ class ModalManager {
         planetTypeManager.addGeneratedPlanet(planetConfig);
 
         // Switch to the generated planet
-        if (window.gameEngine) {
-            window.gameEngine.switchPlanet(planetConfig.id);
+        if (this.gameEngine) {
+            this.gameEngine.switchPlanet(planetConfig.id);
         }
 
         // Close modal
         this.closePlanetModal();
-
-        console.log('Generated and switched to planet:', planetConfig.name);
     }
 
     // Generated Planet Management Functions
@@ -542,9 +536,7 @@ class ModalManager {
     clearGeneratedPlanets() {
         showConfirmDialog('Are you sure you want to remove all generated planets? This will permanently delete them from your browser storage.', () => {
             planetTypeManager.clearGeneratedPlanets();
-            if (window.populateGeneratedPlanets) {
-                window.populateGeneratedPlanets();
-            }
+            this.populateGeneratedPlanets();
             toastManager.info('All generated planets cleared from memory and storage.');
         });
     }
@@ -596,20 +588,3 @@ class ModalManager {
         }
     }
 }
-
-// Make functions globally accessible for onclick handlers
-const modalManager = new ModalManager();
-window.modalManager = modalManager;
-window.showPlanetModal = () => modalManager.showPlanetModal();
-window.closePlanetModal = () => modalManager.closePlanetModal();
-window.applyPlanetSelection = () => modalManager.applyPlanetSelection();
-window.showPlanetTab = (tabName) => modalManager.showPlanetTab(tabName);
-window.randomizeGeneratorParams = () => modalManager.randomizeGeneratorParams();
-window.generateAndVisitPlanet = () => modalManager.generateAndVisitPlanet();
-window.exportPlanet = (planetId) => modalManager.exportPlanet(planetId);
-window.clearGeneratedPlanets = () => modalManager.clearGeneratedPlanets();
-window.importPlanet = () => modalManager.importPlanet();
-window.exportAllGeneratedPlanets = () => modalManager.exportAllGeneratedPlanets();
-
-// Export for module use
-window.ModalManager = ModalManager;

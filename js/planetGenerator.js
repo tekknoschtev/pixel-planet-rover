@@ -1,5 +1,7 @@
 // Procedural Planet Generator System
-class PlanetGenerator {
+import { RNGUtils } from './utils/RNGUtils.js';
+
+export class PlanetGenerator {
     constructor() {
         this.generatedPlanets = new Map(); // Cache for generated planets
         this.planetNames = [
@@ -11,29 +13,6 @@ class PlanetGenerator {
             "Prime", "Alpha", "Beta", "Gamma", "Major", "Minor", "Central", "Outer",
             "Inner", "New", "Far", "Deep", "Bright", "Dark", "Red", "Blue"
         ];
-    }
-
-    // Seed-based pseudo-random number generator (Linear Congruential Generator)
-    createSeededRNG(seed) {
-        let currentSeed = seed;
-        return {
-            next() {
-                currentSeed = (currentSeed * 1664525 + 1013904223) % Math.pow(2, 32);
-                return currentSeed / Math.pow(2, 32);
-            },
-            // Generate float between min and max
-            range(min, max) {
-                return min + (max - min) * this.next();
-            },
-            // Generate integer between min and max (inclusive)
-            intRange(min, max) {
-                return Math.floor(this.range(min, max + 1));
-            },
-            // Pick random element from array
-            choice(array) {
-                return array[this.intRange(0, array.length - 1)];
-            }
-        };
     }
 
     // Generate a hash from a string to use as seed
@@ -294,7 +273,7 @@ class PlanetGenerator {
             seed = this.hashString(seed);
         }
 
-        const rng = this.createSeededRNG(seed);
+        const rng = RNGUtils.createSeededRNG(seed);
         
         // Handle biome mixing
         let biomeMix = customParams?.biomeMix || null;
@@ -567,6 +546,5 @@ class PlanetGenerator {
     }
 }
 
-// Export singleton instance
-const planetGenerator = new PlanetGenerator();
-window.planetGenerator = planetGenerator; // Make globally accessible for debugging
+// Shared singleton instance
+export const planetGenerator = new PlanetGenerator();

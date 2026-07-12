@@ -1,15 +1,16 @@
 /**
  * RNGUtils
  *
- * Shared random number generation utilities.
- * Eliminates duplication of RNG implementation across planetGenerator.js and planetObjects.js.
+ * Shared seeded random number generation, used by planet generation,
+ * object placement, and biome regions so a seed always reproduces the
+ * same planet.
  */
 
-class RNGUtils {
+export class RNGUtils {
     /**
-     * Create a seeded random number generator using Linear Congruential Generator
+     * Create a seeded random number generator using a Linear Congruential Generator
      * @param {number} seed - The seed value
-     * @returns {object} RNG object with next() method
+     * @returns {object} RNG object
      */
     static createSeededRNG(seed) {
         let currentSeed = seed;
@@ -22,6 +23,26 @@ class RNGUtils {
             next() {
                 currentSeed = (currentSeed * 1664525 + 1013904223) % Math.pow(2, 32);
                 return currentSeed / Math.pow(2, 32);
+            },
+
+            /**
+             * Get a random float between min and max
+             * @param {number} min
+             * @param {number} max
+             * @returns {number}
+             */
+            range(min, max) {
+                return min + (max - min) * this.next();
+            },
+
+            /**
+             * Get a random integer between min and max (inclusive)
+             * @param {number} min
+             * @param {number} max
+             * @returns {number}
+             */
+            intRange(min, max) {
+                return Math.floor(this.range(min, max + 1));
             },
 
             /**
@@ -98,10 +119,6 @@ class RNGUtils {
      * @returns {boolean}
      */
     static isValidRNG(rng) {
-        return rng && typeof rng.next === 'function' && typeof rng.reset === 'function';
+        return Boolean(rng && typeof rng.next === 'function' && typeof rng.reset === 'function');
     }
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = RNGUtils;
 }

@@ -1,14 +1,17 @@
 // BiomeManager.js - Handles biome region generation and sampling
-class BiomeManager {
+import * as THREE from 'three';
+import { RNGUtils } from '../utils/RNGUtils.js';
+import { planetGenerator } from '../planetGenerator.js';
+
+export class BiomeManager {
     constructor() {
-        // Store current biome region data globally accessible
         this.currentBiomeRegionData = null;
     }
 
     // Biome Region Generation Functions
     initializeBiomeRegions(biomeMix, seed) {
         // Create seeded random for consistent biome placement
-        const rng = this.createSeededRNG(seed + 1000);
+        const rng = RNGUtils.createSeededRNG(seed + 1000);
 
         // Create biome region data
         const biomeRegionData = {
@@ -25,19 +28,6 @@ class BiomeManager {
 
         this.currentBiomeRegionData = biomeRegionData;
         return biomeRegionData;
-    }
-
-    createSeededRNG(seed) {
-        let currentSeed = seed;
-        return {
-            next() {
-                currentSeed = (currentSeed * 1664525 + 1013904223) % Math.pow(2, 32);
-                return currentSeed / Math.pow(2, 32);
-            },
-            range(min, max) {
-                return min + (max - min) * this.next();
-            }
-        };
     }
 
     sampleBiomeAtPosition(x, y, z, biomeRegionData) {
@@ -97,18 +87,7 @@ class BiomeManager {
             }
         }
 
-        const selectedBiome = closestSeed.biome;
-
-        // Debug logging
-        if (Math.random() < 0.001) {
-            console.log('Biome region debug:', {
-                position: [nx.toFixed(2), ny.toFixed(2), nz.toFixed(2)],
-                closestSeedDistance: Math.sqrt(minDistance).toFixed(3),
-                selectedBiome: selectedBiome
-            });
-        }
-
-        return selectedBiome;
+        return closestSeed.biome;
     }
 
     // Simple 3D noise function (basic implementation)
@@ -123,27 +102,18 @@ class BiomeManager {
 
     getBiomePropertiesAtPosition(x, y, z, biomeRegionData, defaultProps) {
         if (!biomeRegionData) {
-            if (Math.random() < 0.0001) console.log('getBiomePropertiesAtPosition: No biomeRegionData');
             return defaultProps;
         }
 
         const biome = this.sampleBiomeAtPosition(x, y, z, biomeRegionData);
-
         if (!biome) {
-            if (Math.random() < 0.001) console.log('getBiomePropertiesAtPosition: No biome returned from sample');
             return defaultProps;
         }
 
         // Get biome-specific properties
         const biomeRanges = planetGenerator.getBiomeGenerationRanges()[biome];
         if (!biomeRanges) {
-            console.log('getBiomePropertiesAtPosition: No biome ranges for', biome);
             return defaultProps;
-        }
-
-        // Debug log successful biome assignment
-        if (Math.random() < 0.001) {
-            console.log('getBiomePropertiesAtPosition: Successfully assigned biome', biome, 'with color', biomeRanges.material.color[0]);
         }
 
         // Return biome-specific terrain and material properties
@@ -163,11 +133,6 @@ class BiomeManager {
         const vertices = geometry.attributes.position.array;
         const colors = new Float32Array(vertices.length); // RGB values for each vertex
 
-        console.log('Adding face-based colors for', vertices.length / 3, 'vertices');
-        console.log('Vertex biomes size:', vertexBiomes.size);
-
-        let colorCounts = {};
-
         // Process each triangle face (3 vertices at a time) and assign the same color to all 3 vertices
         for (let i = 0; i < vertices.length; i += 9) { // Step by 9 (3 vertices * 3 components each)
             // Get the center point of the triangle face
@@ -180,19 +145,13 @@ class BiomeManager {
             const biome = this.sampleBiomeAtPosition(centerX, centerY, centerZ, this.currentBiomeRegionData);
 
             let color = 0x8B4513; // Default mars color
-            let biomeName = 'default';
 
             if (biome) {
                 const biomeRanges = planetGenerator.getBiomeGenerationRanges()[biome];
                 if (biomeRanges) {
                     color = parseInt(biomeRanges.material.color[0].replace('0x', ''), 16);
-                    biomeName = biome;
                 }
             }
-
-            // Count colors for debugging
-            if (!colorCounts[biomeName]) colorCounts[biomeName] = 0;
-            colorCounts[biomeName]++;
 
             // Convert hex color to RGB values (0-1 range)
             const r = ((color >> 16) & 255) / 255;
@@ -208,8 +167,6 @@ class BiomeManager {
             }
         }
 
-        console.log('Biome color distribution:', colorCounts);
-
         // Add color attribute to geometry
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     }
@@ -222,10 +179,5 @@ class BiomeManager {
     // Set current biome region data (for use by other systems)
     setCurrentBiomeRegionData(data) {
         this.currentBiomeRegionData = data;
-        // Also set it globally for backward compatibility
-        window.currentBiomeRegionData = data;
     }
 }
-
-// Export for global use
-window.BiomeManager = BiomeManager;

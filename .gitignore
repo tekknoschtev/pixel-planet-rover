@@ -1,2 +1,4 @@
 .idea/
 todos/
+node_modules/
+*.iml

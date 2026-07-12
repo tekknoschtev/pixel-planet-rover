@@ -1,5 +1,7 @@
 // TerrainGenerator.js - Handles all terrain generation algorithms
-class TerrainGenerator {
+import * as THREE from 'three';
+
+export class TerrainGenerator {
     constructor() {
         // No state needed for pure terrain generation functions
     }
@@ -431,6 +433,3 @@ class TerrainGenerator {
         };
     }
 }
-
-// Export for global use
-window.TerrainGenerator = TerrainGenerator;
